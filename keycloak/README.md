@@ -22,19 +22,34 @@ The setup uses environment variables for configuration. These are stored in a `.
    ```
 
 2. Configure the environment variables in `.env`:
-   ```
-   # PostgreSQL Configuration
-   POSTGRES_DB=keycloak
-   POSTGRES_USER=keycloak
-   POSTGRES_PASSWORD=keycloak_password
 
-   # Keycloak Configuration
-   KEYCLOAK_ADMIN=admin
-   KEYCLOAK_ADMIN_PASSWORD=admin
+### PostgreSQL Settings
+- `POSTGRES_DB`: Database name for Keycloak
+- `POSTGRES_USER`: Database user for Keycloak
+- `POSTGRES_PASSWORD`: Database password for Keycloak
 
-   # Port Configuration
-   KEYCLOAK_PORT=8080
-   ```
+### Keycloak Settings
+- `KEYCLOAK_ADMIN`: Admin username for Keycloak
+- `KEYCLOAK_ADMIN_PASSWORD`: Admin password for Keycloak
+
+### Port Settings
+- `KEYCLOAK_PORT`: Port for Keycloak service (default: 8080)
+
+### Container Names
+- `keycloak_postgres`: PostgreSQL container name
+- `keycloak`: Keycloak container name
+
+## Directory Structure
+
+```
+.
+├── postgres_data/    # PostgreSQL data (auto-created)
+├── .env             # Environment variables
+├── .env.example     # Environment template
+├── .gitignore       # Git ignore rules
+├── docker-compose.yml
+└── README.md
+```
 
 ## Usage
 
@@ -57,11 +72,39 @@ docker-compose down
   - Username: specified in `KEYCLOAK_ADMIN`
   - Password: specified in `KEYCLOAK_ADMIN_PASSWORD`
 
-## Data Persistence
+## Data Persistence and Backup
 
-- PostgreSQL data is stored in `./postgres_data/`
-- This directory is automatically created when the container starts
-- The directory is excluded from Git via `.gitignore`
+The setup maintains data persistence through the following:
+
+- `postgres_data/`: Contains all PostgreSQL database files
+  - Stores Keycloak configurations
+  - User data
+  - Realm settings
+  - Client configurations
+
+To backup your Keycloak installation:
+
+1. Stop the services:
+   ```bash
+   docker-compose down
+   ```
+
+2. Backup the data directory:
+   ```bash
+   tar -czf keycloak_backup.tar.gz postgres_data/
+   ```
+
+3. Backup the environment configuration:
+   ```bash
+   cp .env env_backup
+   ```
+
+To restore from backup:
+
+1. Stop the services if running
+2. Replace the `postgres_data/` directory with the backup
+3. Restore the `.env` file
+4. Restart the services
 
 ## Security Notes
 
