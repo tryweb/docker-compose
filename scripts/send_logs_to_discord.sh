@@ -3,6 +3,7 @@
 # 默認值
 LOG_FILE=""
 WEBHOOK_URL=""
+TITLE=""
 MAX_CHARS=1500
 
 # 解析命令行參數
@@ -14,12 +15,15 @@ for arg in "$@"; do
         WEBHOOK_URL=*)
         WEBHOOK_URL="${arg#*=}"
         ;;
+        TITLE=*)
+        TITLE="${arg#*=}"
+        ;;
     esac
 done
 
 # 檢查必要參數
 if [ -z "$LOG_FILE" ] || [ -z "$WEBHOOK_URL" ]; then
-    echo "使用方法: $0 LOG_FILE=/path/to/logfile WEBHOOK_URL=https://discord.com/api/webhooks/..."
+    echo "使用方法: $0 LOG_FILE=/path/to/logfile WEBHOOK_URL=https://discord.com/api/webhooks/... [TITLE=\"訊息標題\"]"
     exit 1
 fi
 
@@ -31,12 +35,39 @@ fi
 
 buffer=""
 char_count=0
+message_count=0
 
 send_message() {
     local content="$1"
     if [ -n "$content" ]; then
-        local json_content=$(echo "$content" | jq -sR .)
-        curl -H "Content-Type: application/json" -X POST -d "{\"content\":$json_content}" "$WEBHOOK_URL"
+        # 構建消息標題
+        local message_title=""
+        if [ $message_count -eq 0 ] && [ -n "$TITLE" ]; then
+            message_title="$TITLE"
+        else
+            # 使用一致的格式，但續傳消息沒有標題
+            message_title=""
+        fi
+        
+        # 消息計數加1
+        message_count=$((message_count + 1))
+        
+        # 使用jq構建JSON
+        local payload
+        if [ -n "$message_title" ]; then
+            payload=$(jq -n --arg title "$message_title" --arg desc "$content" '{embeds: [{title: $title, description: $desc}]}')
+        else
+            # 沒有標題的消息也使用embed格式保持一致性
+            payload=$(jq -n --arg desc "$content" '{embeds: [{description: $desc}]}')
+        fi
+        
+        response=$(curl -s -H "Content-Type: application/json" -X POST -d "$payload" "$WEBHOOK_URL")
+        
+        # 檢查是否有錯誤
+        if [[ "$response" == *"\"code\":"* ]]; then
+            echo "發送失敗: $response"
+        fi
+        
         sleep 1  # 避免 Discord 的速率限制
     fi
 }
