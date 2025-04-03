@@ -1,0 +1,20 @@
+services:
+  cloudflared:
+    image: cloudflare/cloudflared
+    restart: always
+    command: 'tunnel --no-autoupdate run --token  ${TOKEN}'
+
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Asia/Taipei
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *  # 每天凌晨4點檢查更新
+      - WATCHTOWER_CLEANUP=true  # 清理舊的映像檔
+      #- WATCHTOWER_NOTIFICATIONS=slack  # 使用 Slack 通知
+      #- SLACK_HOOK_URL=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    restart: unless-stopped
