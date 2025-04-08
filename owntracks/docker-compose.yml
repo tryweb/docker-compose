@@ -1,0 +1,25 @@
+services:
+  otrecorder:
+    image: owntracks/recorder
+    ports:
+      - 8083:8083
+    volumes:
+      - ./store:/store
+      - ./config:/config
+    restart: unless-stopped
+    environment:
+      - OTR_PORT=0
+      - OTR_HTTPPORT=8083
+      - OTR_USER=${OTR_USER}
+      - OTR_PASS=${OTR_PASS}
+
+  owntracks-frontend:
+    image: owntracks/frontend
+    ports:
+      - 80:80
+    volumes:
+      - ./config/config.js:/usr/share/nginx/html/config/config.js
+    environment:
+      - SERVER_HOST=otrecorder
+      - SERVER_PORT=8083
+    restart: unless-stopped
