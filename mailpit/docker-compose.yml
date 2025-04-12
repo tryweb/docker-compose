@@ -3,12 +3,14 @@ services:
     image: axllent/mailpit
     container_name: mailpit
     ports:
-      - "1025:1025" # SMTP (STARTTLS)
+      - "1025:1025" # SMTP
       - "8025:8025" # Web
     environment:
       - MP_SMTP_TLS_CERT=/etc/mailpit/ServerCA.crt
       - MP_SMTP_TLS_KEY=/etc/mailpit/ServerCA.key
       - MP_SMTP_AUTH_ACCEPT_ANY=true
+      - MP_SMTP_REQUIRE_STARTTLS=true   # STARTTLS
+      - MP_SMTP_REQUIRE_TLS=false       # SSL/TLS
       - MP_UI_LANG=zh_TW
       - MP_UI_AUTO_REFRESH=10
     volumes:
