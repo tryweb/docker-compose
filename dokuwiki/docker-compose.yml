@@ -21,6 +21,7 @@ services:
       - 3306:3306
     environment:
       - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+      - TZ=Asia/Taipei
     restart: always
     volumes:
       - ./db_data:/var/lib/mysql
