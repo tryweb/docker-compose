@@ -1,0 +1,46 @@
+services:
+  dokuwiki:
+    image: lscr.io/linuxserver/dokuwiki:latest
+    container_name: dokuwiki
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Taipei
+    ports:
+      - 80:80
+      - 443:443
+    restart: always
+    volumes:
+      - ./dokuwiki_data:/config
+      - ./custom-init:/custom-cont-init.d
+
+  mariadb:
+    image: mariadb
+    container_name: db
+    ports:
+      - 3306:3306
+    environment:
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+    restart: always
+    volumes:
+      - ./db_data:/var/lib/mysql
+
+  adminer:
+    image: adminer
+    container_name: adminer
+    restart: always
+    ports:
+      - 8080:8080
+
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Asia/Taipei
+      - WATCHTOWER_SCHEDULE=0 30 23 * * *
+      - WATCHTOWER_CLEANUP=true
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    restart: unless-stopped
