@@ -1,0 +1,130 @@
+
+body {
+    font-family: sans-serif;
+    margin: 20px;
+    background-color: #f0f0f0;
+}
+
+h1 {
+    color: #333;
+    text-align: center;
+}
+
+#myDiv {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Date Range Picker Styling */
+.date-range-picker {
+    position: absolute;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+    display: none;
+    width: 600px;
+    padding: 10px;
+    border-radius: 5px;
+    display: flex;
+}
+
+.date-range-picker.open {
+    display: flex;
+}
+
+.quick-select {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.datetime-picker {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.quick-select {
+    width: 120px;
+    padding: 10px;
+    border-right: 1px solid #ccc;
+}
+
+.quick-select ul {
+    list-style: none;
+    padding: 0;
+}
+
+.quick-select li {
+    padding: 5px 0;
+    cursor: pointer;
+}
+
+.quick-select li:hover {
+    background-color: #f0f0f0;
+}
+
+.calendar-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10px;
+}
+
+.calendar {
+    width: 200px;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.month-year {
+    font-weight: bold;
+}
+
+.prev-month,
+.next-month {
+    cursor: pointer;
+    padding: 5px;
+}
+
+.calendar-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.calendar-table th {
+    text-align: center;
+    padding: 5px;
+}
+
+.calendar-table td {
+    text-align: center;
+    padding: 5px;
+    border: 1px solid #eee;
+    cursor: pointer;
+}
+
+.calendar-table td.selected {
+    background-color: #007bff;
+    color: white;
+}
+
+.calendar-table td:hover {
+    background-color: #f0f0f0;
+}
+.date-picker-container{
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+}

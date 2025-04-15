@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/zh-tw.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OwnTracks Rec 檔案轉 GPX (含異常點過濾)</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <h1>OwnTracks Rec 檔案轉 GPX</h1>
+
+    <div class="container">
+        <p>將 OwnTracks Recorder 的 .rec 檔案轉換為通用的 GPX 格式，並過濾異常點。</p>
+       
+        <label for="recFile">選擇 .rec 檔案:</label>
+        <input type="file" id="recFile" class="file-input" accept=".rec,.txt">
+       
+        <div class="filter-options">
+            <h3>GPS 異常點過濾選項</h3>
+           
+            <div class="filter-group">
+                <input type="checkbox" id="filterAccuracy" checked>
+                <label for="filterAccuracy">根據精確度過濾</label>
+                <input type="number" id="maxAccuracy" value="100" min="0"> 公尺 (較低值 = 更嚴格過濾)
+            </div>
+           
+            <div class="filter-group">
+                <input type="checkbox" id="filterSpeed" checked>
+                <label for="filterSpeed">過濾不合理速度</label>
+                <input type="number" id="maxSpeed" value="180" min="0"> km/h (最大合理速度)
+            </div>
+           
+            <div class="filter-group">
+                <input type="checkbox" id="filterJumps" checked>
+                <label for="filterJumps">過濾位置跳躍</label>
+                <input type="number" id="maxJump" value="1000" min="0"> 公尺 (最大合理位移)
+            </div>
+
+            <div class="quick-select">
+                <button id="todayBtn" class="quick-btn" data-days="0">Today</button>
+                <button id="sevenDaysBtn" class="quick-btn" data-days="7">7 days</button>
+                <button id="thirtyDaysBtn" class="quick-btn" data-days="30">30 days</button>
+            </div>
+
+            <div id="timePickerContainer">
+                </div>
+                <div class="time-picker-container">
+                    <div class="datetime-group">
+                        <label for="startTime">開始時間：</label>
+                        <input type="datetime-local" id="startTime" >
+                    </div>
+                    <div class="datetime-group">
+                        <label for="endTime">結束時間：</label>
+                        <input type="datetime-local" id="endTime" >
+                    </div>
+                </div>
+
+         </div>
+        <button id="convertBtn" class="btn">轉換為 GPX</button>
+       
+        <div id="error" class="error"></div>
+        <div id="output"></div>
+       
+        <div id="result" class="result">
+            <h3>轉換完成</h3>
+            <p>您可以下載 GPX 檔案:</p>
+            <button id="downloadBtn" class="btn">下載 GPX 檔案</button>
+            <div id="stats" class="stats"></div>
+        </div>
+    </div>
+    <script src="main.js"></script>
+    <script src="flatpickr.js"></script>
+</body>
+</html>
