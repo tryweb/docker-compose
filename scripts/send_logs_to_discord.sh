@@ -2,8 +2,8 @@
 
 # 默認值
 LOG_FILE=""
-WEBHOOK_URL=""
-TITLE=""
+WEBHOOK_URL="${WEBHOOK_URL:-}"
+TITLE="${TITLE:-}"
 MAX_CHARS=1500
 
 # 解析命令行參數
@@ -48,10 +48,10 @@ send_message() {
             # 使用一致的格式，但續傳消息沒有標題
             message_title=""
         fi
-        
+
         # 消息計數加1
         message_count=$((message_count + 1))
-        
+
         # 使用jq構建JSON
         local payload
         if [ -n "$message_title" ]; then
@@ -60,21 +60,21 @@ send_message() {
             # 沒有標題的消息也使用embed格式保持一致性
             payload=$(jq -n --arg desc "$content" '{embeds: [{description: $desc}]}')
         fi
-        
+
         response=$(curl -s -H "Content-Type: application/json" -X POST -d "$payload" "$WEBHOOK_URL")
-        
+
         # 檢查是否有錯誤
         if [[ "$response" == *"\"code\":"* ]]; then
             echo "發送失敗: $response"
         fi
-        
+
         sleep 1  # 避免 Discord 的速率限制
     fi
 }
 
 while IFS= read -r line; do
     line_length=${#line}
-    
+
     if [ $line_length -gt $MAX_CHARS ]; then
         # 如果目前的 buffer 不為空，先發送 buffer
         if [ $char_count -gt 0 ]; then
@@ -82,7 +82,7 @@ while IFS= read -r line; do
             buffer=""
             char_count=0
         fi
-        
+
         # 分割超長行
         for ((i=0; i<$line_length; i+=$MAX_CHARS)); do
             chunk="${line:$i:$MAX_CHARS}"
