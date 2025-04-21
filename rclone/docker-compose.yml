@@ -1,0 +1,26 @@
+services:
+  rclone-webui:
+    image: rclone/rclone
+    container_name: rclone-webui
+    ports:
+      - "5572:5572"
+    environment:
+      - RCLONE_RC_USER=${RCLONE_RC_USER}
+      - RCLONE_RC_PASS=${RCLONE_RC_PASS}
+    volumes:
+      - ./rclone-config:/config/rclone
+      #- /nas_Photos:/nas_Photos
+    command: rcd --rc-web-gui --rc-addr 0.0.0.0:5572
+
+  rclone-cron:
+    image: ghcr.io/tryweb/docker-compose/rclone-cron:latest
+    container_name: rclone-cron
+    environment:
+      - TZ=Asia/Taipei
+      - TITLE=${TITLE}
+      - WEBHOOK_URL=${WEBHOOK_URL}      
+    volumes:
+      - ./rclone-config:/root/.config/rclone
+      - ./root_crontab:/etc/crontabs/root
+      - ./cron-logs:/var/log/cron
+      #- /nas_Photos:/nas_Photos

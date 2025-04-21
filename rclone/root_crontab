@@ -1,0 +1,8 @@
+# rclone-job
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+* * * * * date >> /var/log/cron/test.log 2>&1 && send_logs_to_discord.sh TITLE="RClone Cron Test..." LOG_FILE="/var/log/cron/test.log"
+#20 17 * * * rclone copy --max-age 48h --no-traverse -v GooglePhotos:/media/by-year/ /nas_Photos/GooglePhotos/ > /var/log/cron/GooglePhotos.log 2>&1 && send_logs_to_discord.sh TITLE="RClone sync Google Photos..." LOG_FILE="/var/log/cron/GooglePhotos.log"
+
+
