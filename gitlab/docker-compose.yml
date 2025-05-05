@@ -1,0 +1,66 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce
+    container_name: gitlab
+    restart: always
+    hostname: '${DOMAIN_NAME}'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'https://${DOMAIN_NAME}'
+        letsencrypt['enable'] = false
+        nginx['ssl_certificate'] = "/etc/gitlab/ssl/fullchain.pem"
+        nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/privkey.pem"
+        nginx['enable'] = true
+        nginx['redirect_http_to_https'] = true
+    ports:
+      - '80:80'
+      - '443:443'
+      - '9022:22'
+    volumes:
+      - './config:/etc/gitlab'
+      - './logs:/var/log/gitlab'
+      - './data:/var/opt/gitlab'
+      - './ssl:/etc/gitlab/ssl'
+    shm_size: '256m'
+    networks:
+      - gitlab-network
+
+  certbot:
+    image: certbot/dns-cloudflare:latest
+    container_name: certbot
+    restart: always
+    volumes:
+      - ./ssl:/etc/letsencrypt
+      - ./cloudflare.ini:/etc/secrets/cloudflare.ini:ro
+    entrypoint: "/bin/sh"
+    command:
+      - -c
+      - |
+        trap exit TERM;
+        while :; do
+          certbot certonly --dns-cloudflare --dns-cloudflare-credentials /etc/secrets/cloudflare.ini \
+            -d ${DOMAIN_NAME} --non-interactive --agree-tos \
+            -m ${CF_EMAIL} || true;
+
+          if [ -f /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem ]; then
+            cp /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem /etc/letsencrypt/fullchain.pem;
+            cp /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem /etc/letsencrypt/privkey.pem;
+            chmod 644 /etc/letsencrypt/fullchain.pem /etc/letsencrypt/privkey.pem;
+
+            apk add --no-cache curl
+            echo "Waiting for GitLab to be ready..."
+            until curl -s http://gitlab:80/-/health > /dev/null; do
+              sleep 5
+            done
+
+            echo "Reloading GitLab configuration..."
+            curl -s --show-error --fail -X POST http://gitlab:80/-/api/v4/admin/application/settings/reload_without_downtime
+          fi
+          sleep 24h;
+        done
+    networks:
+      - gitlab-network
+
+networks:
+  gitlab-network:
+    driver: bridge
