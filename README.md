@@ -28,11 +28,126 @@ Features:
 - Data persistence for both WordPress and MySQL
 - Detailed backup procedures
 
+### Cloudflare Tunnel
+Secure tunnel proxy service for exposing local services through Cloudflare.
+
+[View Cloudflared Setup](cloudflared/docker-compose.yml)
+
+Features:
+- Cloudflared tunnel client configuration
+- Environment variable management
+- Automatic TLS certificate handling
+
+### DokuWiki
+Lightweight wiki platform with PHP backend.
+
+[View DokuWiki Setup](dokuwiki/docker-compose.yml)
+
+Features:
+- PHP-FPM with Nginx reverse proxy
+- Custom initialization scripts
+- Persistent data volume for wiki content
+- MySQLi extension support
+
+### GitLab CE
+Self-hosted Git repository management system.
+
+[View GitLab Setup](gitlab/docker-compose.yml)
+
+Features:
+- Integrated CI/CD pipelines
+- Cloudflare Tunnel configuration template
+- PostgreSQL and Redis backends
+
+### Immich
+Self-hosted photo backup solution.
+
+[View Immich Setup](immich/docker-compose.yml)
+
+Features:
+- Microservices architecture (API, worker, ML)
+- PostgreSQL and Redis dependencies
+- Machine learning image analysis
+
+### LibreNMS
+Network monitoring and management system.
+
+[View LibreNMS Setup](librenms/extend/check_smart.sh)
+
+Features:
+- SMART disk monitoring integration
+- Custom health check scripts
+- SNMP-based device discovery
+
+### Mailpit
+Email testing tool with web interface.
+
+[View Mailpit Setup](mailpit/docker-compose.yml)
+
+Features:
+- SMTP server with TLS support (port 1025)
+- Web-based email viewing interface (port 8025)
+- TLS/STARTTLS configuration options
+- Traditional Chinese (zh_TW) interface
+- Auto-refresh functionality
+- SSL certificates management
+
+### OpenVAS
+Comprehensive vulnerability assessment system.
+
+[View OpenVAS Setup](openvas/docker-compose.yml)
+
+Features:
+- Greenbone Community Edition microservices architecture
+- Vulnerability testing database
+- PostgreSQL and Redis backends
+- Modular scanning components
+- Email notification integration
+- Web interface for scan management
+- Regular updates via script
+
+### OwnTracks
+Personal location tracking system.
+
+[View OwnTracks Setup](owntracks/docker-compose.yml)
+
+Features:
+- Recorder service for storing location data
+- Web frontend for visualization
+- Authentication system
+- Data persistence
+- Includes rec2gpx converter tool
+- REST API support
+
+### Rclone
+Cloud storage synchronization tool.
+
+[View Rclone Setup](rclone/docker-compose.yml)
+
+Features:
+- Web UI for configuration and management
+- Scheduled synchronization via cron jobs
+- Discord webhook notifications
+- Configuration persistence
+- Timezone configuration support
+- Multiple cloud service provider support
+
 ## Directory Structure
 
 ```
 .
+├── cloudflared/        # Cloudflare Tunnel client
+├── dokuwiki/           # DokuWiki with Nginx
+├── gitlab/             # GitLab CE with CI/CD
+├── immich/             # Photo backup system
 ├── keycloak/           # Keycloak with PostgreSQL
+├── librenms/           # Server and Network monitoring
+├── mailpit/            # Email testing tool
+├── openvas/            # Server Vulnerability scanner
+├── owntracks/          # Location tracking system
+├── rclone/             # Cloud storage sync
+├── scripts/            # Utility scripts
+    └── send_logs_to_discord.sh  # Discord log notification script
 ├── wordpress/          # WordPress with MySQL
 └── README.md
 ```
@@ -70,3 +185,30 @@ To use any service:
 - Sensitive files and data directories are excluded via `.gitignore`
 - Default credentials should be changed before deployment
 - Review security settings before production use
+
+## Scripts
+
+### send_logs_to_discord.sh
+
+A utility script for sending log messages to Discord channels via webhooks.
+
+Features:
+- Sends formatted log messages to Discord
+- Supports custom titles and message content
+- Can be integrated with any service for notification purposes
+- Useful for monitoring and alerts
+
+## Contribution
+
+To contribute to this repository:
+
+1. Fork the repository
+2. Create a new branch for your feature or fix
+3. Add or update the service configuration
+4. Include or update README documentation
+5. Submit a pull request
+
+Please ensure that new services follow the same structure as existing ones, including:
+- docker-compose.yml with proper container configurations
+- .env.example for configuration templates
+- Documentation with setup and usage instructions
