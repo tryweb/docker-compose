@@ -8,7 +8,8 @@ This repository contains a collection of Docker Compose configurations for vario
 
 Identity and Access Management solution with PostgreSQL database.
 
-[View Keycloak Setup](keycloak/README.md)
+- Wiki - https://www.ichiayi.com/tech/keycloak
+- [View Keycloak Setup](keycloak/README.md)
 
 Features:
 - Keycloak server with PostgreSQL backend
@@ -20,7 +21,8 @@ Features:
 
 WordPress CMS with MySQL database.
 
-[View WordPress Setup](wordpress/README.md)
+- Wiki - https://www.ichiayi.com/tech/wordpress_docker
+- [View WordPress Setup](wordpress/README.md)
 
 Features:
 - WordPress with MySQL backend
@@ -31,7 +33,7 @@ Features:
 ### Cloudflare Tunnel
 Secure tunnel proxy service for exposing local services through Cloudflare.
 
-[View Cloudflared Setup](cloudflared/docker-compose.yml)
+- Wiki - https://www.ichiayi.com/tech/cloudflare_tunnel
 
 Features:
 - Cloudflared tunnel client configuration
@@ -41,7 +43,7 @@ Features:
 ### DokuWiki
 Lightweight wiki platform with PHP backend.
 
-[View DokuWiki Setup](dokuwiki/docker-compose.yml)
+- Wiki - https://www.ichiayi.com/tech/dokuwiki
 
 Features:
 - PHP-FPM with Nginx reverse proxy
@@ -52,7 +54,7 @@ Features:
 ### GitLab CE
 Self-hosted Git repository management system.
 
-[View GitLab Setup](gitlab/docker-compose.yml)
+- Wiki - https://www.ichiayi.com/tech/gitlabtips
 
 Features:
 - Integrated CI/CD pipelines
@@ -62,7 +64,7 @@ Features:
 ### Immich
 Self-hosted photo backup solution.
 
-[View Immich Setup](immich/docker-compose.yml)
+- Wiki - https://www.ichiayi.com/tech/immich
 
 Features:
 - Microservices architecture (API, worker, ML)
@@ -72,7 +74,7 @@ Features:
 ### LibreNMS
 Network monitoring and management system.
 
-[View LibreNMS Setup](librenms/extend/check_smart.sh)
+- Wiki - https://www.ichiayi.com/tech/k8s_librenms
 
 Features:
 - SMART disk monitoring integration
@@ -82,7 +84,7 @@ Features:
 ### Mailpit
 Email testing tool with web interface.
 
-[View Mailpit Setup](mailpit/docker-compose.yml)
+- Wiki - https://www.ichiayi.com/tech/mailpit
 
 Features:
 - SMTP server with TLS support (port 1025)
@@ -95,7 +97,7 @@ Features:
 ### OpenVAS
 Comprehensive vulnerability assessment system.
 
-[View OpenVAS Setup](openvas/docker-compose.yml)
+- Wiki - https://www.ichiayi.com/tech/openvas
 
 Features:
 - Greenbone Community Edition microservices architecture
@@ -109,7 +111,7 @@ Features:
 ### OwnTracks
 Personal location tracking system.
 
-[View OwnTracks Setup](owntracks/docker-compose.yml)
+- Wiki - https://www.ichiayi.com/tech/owntrack
 
 Features:
 - Recorder service for storing location data
@@ -122,7 +124,7 @@ Features:
 ### Rclone
 Cloud storage synchronization tool.
 
-[View Rclone Setup](rclone/docker-compose.yml)
+- Wiki - https://www.ichiayi.com/tech/rclone_docker
 
 Features:
 - Web UI for configuration and management
