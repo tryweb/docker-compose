@@ -134,6 +134,21 @@ Features:
 - Timezone configuration support
 - Multiple cloud service provider support
 
+### Syslog-ng
+Centralized logging system for collecting and processing logs.
+
+- Wiki - https://www.ichiayi.com/tech/logsrv_docker
+
+Features:
+- Flexible log collection from multiple sources (TCP/UDP)
+- Advanced log filtering and routing capabilities
+- Custom configuration file with SCL support
+- Per-host log organization with automatic directory creation
+- Log rotation with 90-day retention policy
+- Multiple protocol support (UDP/514, TCP/601, TLS/6514)
+- Customizable timestamp and message formatting
+- Support for various log formats and protocols
+
 ## Directory Structure
 
 ```
@@ -149,7 +164,8 @@ Features:
 ├── owntracks/          # Location tracking system
 ├── rclone/             # Cloud storage sync
 ├── scripts/            # Utility scripts
-    └── send_logs_to_discord.sh  # Discord log notification script
+│   └── send_logs_to_discord.sh  # Discord log notification script
+├── syslog-ng/          # Centralized logging system
 ├── wordpress/          # WordPress with MySQL
 └── README.md
 ```
