@@ -1,4 +1,15 @@
 services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - 1883:1883
+      - 9001:9001
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    restart: unless-stopped
+
   otrecorder:
     image: owntracks/recorder
     ports:
@@ -6,12 +17,17 @@ services:
     volumes:
       - ./store:/store
       - ./config:/config
+      - ./auth:/auth
     restart: unless-stopped
     environment:
-      - OTR_PORT=0
-      - OTR_HTTPPORT=8083
+      - OTR_HOST=mosquitto
+      - OTR_PORT=1883
       - OTR_USER=${OTR_USER}
       - OTR_PASS=${OTR_PASS}
+      - OTR_HTTPPORT=8083
+      - OTR_AUTHFILE=/auth/users.auth
+    depends_on:
+      - mosquitto
 
   owntracks-frontend:
     image: owntracks/frontend
