@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTT WebSocket 測試</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .form-group { margin: 10px 0; }
+        label { display: inline-block; width: 120px; }
+        input, button { padding: 8px; margin: 5px; }
+        input[type="text"] { width: 300px; }
+        #log { 
+            border: 1px solid #ccc; 
+            height: 300px; 
+            overflow-y: scroll; 
+            padding: 10px; 
+            background: #f5f5f5; 
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .status { padding: 5px 10px; margin: 5px 0; border-radius: 3px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MQTT WebSocket 連線測試</h1>
+        
+        <div class="form-group">
+            <label for="wsUrl">WebSocket URL:</label>
+            <input type="text" id="wsUrl" value="ws://192.168.11.200:9001" placeholder="ws://your-server:9001">
+        </div>
+        
+        <div class="form-group">
+            <button id="connectBtn">連線</button>
+            <button id="disconnectBtn" disabled>中斷連線</button>
+            <button id="clearBtn">清除日誌</button>
+        </div>
+        
+        <div id="status" class="status info">準備就緒</div>
+        
+        <h3>連線日誌</h3>
+        <div id="log"></div>
+        
+        <div class="form-group">
+            <h3>測試訊息發送</h3>
+            <label for="testTopic">Topic:</label>
+            <input type="text" id="testTopic" value="test/websocket" placeholder="test/topic">
+        </div>
+        
+        <div class="form-group">
+            <label for="testMessage">Message:</label>
+            <input type="text" id="testMessage" value="Hello WebSocket!" placeholder="測試訊息">
+        </div>
+        
+        <div class="form-group">
+            <button id="sendBtn" disabled>發送測試訊息</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            log.innerHTML += `[${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function updateStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+        
+        function connect() {
+            const url = document.getElementById('wsUrl').value;
+            
+            try {
+                addLog(`嘗試連線到: ${url}`);
+                updateStatus('連線中...', 'info');
+                
+                ws = new WebSocket(url);
+                
+                ws.onopen = function(event) {
+                    addLog('✅ WebSocket 連線成功！', 'success');
+                    updateStatus('已連線', 'success');
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    sendBtn.disabled = false;
+                };
+                
+                ws.onmessage = function(event) {
+                    addLog(`📨 收到訊息: ${event.data}`);
+                };
+                
+                ws.onclose = function(event) {
+                    addLog(`🔌 連線已關閉 (Code: ${event.code}, Reason: ${event.reason})`);
+                    updateStatus('連線已關閉', 'error');
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    sendBtn.disabled = true;
+                };
+                
+                ws.onerror = function(event) {
+                    addLog(`❌ WebSocket 錯誤: ${event.type}`);
+                    updateStatus('連線錯誤', 'error');
+                };
+                
+            } catch (error) {
+                addLog(`❌ 連線失敗: ${error.message}`);
+                updateStatus('連線失敗', 'error');
+            }
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+        
+        function sendTestMessage() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const topic = document.getElementById('testTopic').value;
+                const message = document.getElementById('testMessage').value;
+                
+                // 簡單的文字訊息測試
+                ws.send(`${topic}:${message}`);
+                addLog(`📤 發送訊息到 ${topic}: ${message}`);
+            } else {
+                addLog('❌ 無法發送訊息：連線未建立');
+            }
+        }
+        
+        function clearLog() {
+            log.innerHTML = '';
+        }
+        
+        // 事件監聽器
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        sendBtn.addEventListener('click', sendTestMessage);
+        document.getElementById('clearBtn').addEventListener('click', clearLog);
+        
+        // 初始化日誌
+        addLog('WebSocket 測試工具已載入');
+        addLog('請輸入 WebSocket URL 並點選連線按鈕');
+    </script>
+</body>
+</html>
