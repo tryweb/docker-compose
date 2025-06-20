@@ -1,10 +1,10 @@
 services:
   immich-server:
     container_name: immich_server
-    image: ghcr.io/immich-app/immich-server:release
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
     volumes:
       - ${UPLOAD_LOCATION}:/usr/src/app/upload
-      - /etc/localtime:/etc/localtime:ro
+      #- /nas-246-Photos:/mnt/media/nas-246-Photos:ro
     env_file:
       - .env
     ports:
@@ -18,10 +18,9 @@ services:
 
   immich-machine-learning:
     container_name: immich_machine_learning
-    image: ghcr.io/immich-app/immich-machine-learning:release
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
     volumes:
       - model-cache:/cache
-      - /etc/localtime:/etc/localtime:ro
     env_file:
       - .env
     restart: always
@@ -29,17 +28,19 @@ services:
   redis:
     container_name: immich_redis
     image: redis:alpine
+    environment:
+      TZ: 'Asia/Taipei'
     healthcheck:
       test: redis-cli ping || exit 1
     restart: always
 
   database:
     container_name: immich_postgres
-    image: tensorchord/pgvecto-rs:pg14-v0.3.0
-    command: postgres -c shared_preload_libraries=vectors
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.2-pgvectors0.2.0
     env_file:
       - .env
     environment:
+      TZ: 'Asia/Taipei'
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_DB: ${DB_DATABASE_NAME}
