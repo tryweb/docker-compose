@@ -1,0 +1,41 @@
+version: 0.1
+log:
+  accesslog:
+    disabled: false
+  level: info
+  formatter: text
+  fields:
+    service: registry_proxy
+
+storage:
+  delete:
+    enabled: true
+  maintenance:
+    uploadpurging:
+      enabled: true
+      age: 168h        # 7天後清理未完成的上傳
+      interval: 24h    # 每24小時檢查一次
+      dryrun: false
+  cache:
+    blobdescriptor: inmemory
+  filesystem:
+    rootdirectory: /var/lib/registry
+    maxthreads: 100
+
+http:
+  addr: :5000
+  headers:
+    X-Content-Type-Options: [nosniff]
+
+proxy:
+  remoteurl: https://registry-1.docker.io
+  # 如果需要認證到 Docker Hub，取消註解下面兩行
+  # username: your-dockerhub-username
+  # password: your-dockerhub-password
+
+# 健康檢查配置
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3
