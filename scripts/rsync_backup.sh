@@ -162,11 +162,12 @@ send_discord_notification() {
 cleanup() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - 腳本執行完畢 (SOURCE: $SOURCE_DIR, DRY_RUN: $DRY_RUN)" >>"$LOG_FILE"
     send_discord_notification
-    exit
 }
 
 acquire_lock
-trap cleanup INT TERM EXIT
+# trap 只處理中斷和終止信號，確保在被手動停止時也能清理
+# 正常結束的流程將在腳本末端明確呼叫 cleanup
+trap 'cleanup; exit 1' INT TERM
 
 if [ -n "$EXCLUDE_FILE" ] && [ ! -f "$EXCLUDE_FILE" ]; then
     echo "警告：排除清單檔案 $EXCLUDE_FILE 不存在，將忽略排除清單" >>"$LOG_FILE"
@@ -215,3 +216,6 @@ else
 fi
 
 find "$LOG_DIR" -type f -name "${SCRIPT_NAME}_${SRC_BASENAME}_*.log" -mtime +"$RETENTION_DAYS" -exec rm -rf {} \;
+
+# 在腳本正常執行流程的最後明確呼叫 cleanup，確保 rsync 已完成
+cleanup
