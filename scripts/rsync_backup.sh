@@ -194,7 +194,7 @@ fi
 echo "-----$DATE_TITLE-----" >>"$LOG_FILE"
 echo "$(date '+%Y-%m-%d %H:%M:%S') - 備份開始 (PID: $$, SOURCE: $SOURCE_DIR, DRY_RUN: $DRY_RUN)" >>"$LOG_FILE"
 
-RSYNC_CMD="rsync -ah --stats --whole-file --delete"
+RSYNC_CMD="rsync -ah --info=progress2 --stats --whole-file --delete"
 [ "$DRY_RUN" = true ] && RSYNC_CMD="$RSYNC_CMD --dry-run"
 RSYNC_CMD="$RSYNC_CMD --bwlimit=$BW_LIMIT"
 [ -n "$EXCLUDE_FILE" ] && RSYNC_CMD="$RSYNC_CMD --exclude-from='$EXCLUDE_FILE'"
