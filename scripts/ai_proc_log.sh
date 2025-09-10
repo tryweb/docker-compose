@@ -93,6 +93,9 @@ call_openrouter_api() {
         exit 1
     fi
 
+    local APP_URL="https://github.com/tryweb"
+    local APP_TITLE="AI_Proc_Log"
+	
     local start_time
     start_time=$(date +%s)
 
@@ -103,6 +106,8 @@ call_openrouter_api() {
     ) | curl -s -X POST "$OPENROUTER_API_URL" \
         -H "Authorization: Bearer $OPENROUTER_API_KEY" \
         -H "Content-Type: application/json" \
+        -H "HTTP-Referer: $APP_URL" \
+        -H "X-Title: $APP_TITLE" \
         -d @- \
         | jq -r '.choices[0].message.content'
 
