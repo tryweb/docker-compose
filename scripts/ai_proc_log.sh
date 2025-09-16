@@ -7,27 +7,25 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 # 1. 如果 .env 檔案存在，則載入它 (優先級最低)
-# 這會將 .env 檔案中的變數載入為環境變數
 if [ -f "$SCRIPT_DIR/.env" ]; then
-  set -a # 自動將後續定義的變數導出為環境變數
+  set -a
   source "$SCRIPT_DIR/.env"
-  set +a # 取消自動導出
+  set +a
 fi
 
-# 2. 為所有設定變數提供腳本內預設值 (如果環境變數或 .env 未設定)
-# 格式: ${VARIABLE_NAME:-DEFAULT_VALUE}
+# 2. 為所有設定變數提供腳本內預設值
 API_SERVICE="${API_SERVICE:-openrouter}"
 OLLAMA_API_URL="${OLLAMA_API_URL:-http://localhost:11434/api/generate}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-llama3}"
-OLLAMA_MODEL_BAK="${OLLAMA_MODEL_BAK:-}" # 備用模型，預設為空
+OLLAMA_MODEL_BAK="${OLLAMA_MODEL_BAK:-}"
 OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-YOUR_OPENROUTER_API_KEY}"
 OPENROUTER_MODEL="${OPENROUTER_MODEL:-openai/gpt-4o-mini}"
-OPENROUTER_MODEL_BAK="${OPENROUTER_MODEL_BAK:-}" # 備用模型，預設為空
+OPENROUTER_MODEL_BAK="${OPENROUTER_MODEL_BAK:-}"
 OPENROUTER_API_URL="${OPENROUTER_API_URL:-https://openrouter.ai/api/v1/chat/completions}"
-LOG_FILE="" # LOG_FILE 必須由參數提供
-REMOTE_CONFIG_URL="${REMOTE_CONFIG_URL:-}" # 遠端設定 URL，預設為空
+LOG_FILE=""
+REMOTE_CONFIG_URL="${REMOTE_CONFIG_URL:-}"
 
-# 3. 從命令列參數解析，這會覆蓋所有先前的設定 (優先級最高)
+# 3. 從命令列參數解析
 for arg in "$@"; do
     case $arg in
         LOG_FILE=*) LOG_FILE="${arg#*=}" ;; 
@@ -39,20 +37,16 @@ for arg in "$@"; do
         OPENROUTER_MODEL=*) OPENROUTER_MODEL="${arg#*=}" ;; 
         OPENROUTER_MODEL_BAK=*) OPENROUTER_MODEL_BAK="${arg#*=}" ;; 
         OPENROUTER_API_URL=*) OPENROUTER_API_URL="${arg#*=}" ;; 
-        REMOTE_CONFIG_URL=*) REMOTE_CONFIG_URL="${arg#*=}" ;; # 新增此行
+        REMOTE_CONFIG_URL=*) REMOTE_CONFIG_URL="${arg#*=}" ;;
     esac
 done
 
-# 4. 如果定義了遠端設定 URL，則嘗試載入 (它的優先級僅次於命令列參數)
+# 4. 載入遠端設定
 if [ -n "$REMOTE_CONFIG_URL" ]; then
     echo "正在從遠端載入設定: $REMOTE_CONFIG_URL" >&2
-    # 使用 curl 下載設定內容，並透過 <() process substitution 和 source 指令載入
-    # -sSL: 靜默模式但顯示錯誤, 跟隨轉址
     if REMOTE_SETTINGS=$(curl -sSL "$REMOTE_CONFIG_URL"); then
-        # 檢查下載內容是否為空
         if [ -n "$REMOTE_SETTINGS" ]; then
             set -a
-            # 載入遠端設定。注意：這可能會被後續的命令列參數再次覆蓋
             source <(echo "$REMOTE_SETTINGS")
             set +a
             echo "遠端設定載入成功。" >&2
@@ -64,8 +58,7 @@ if [ -n "$REMOTE_CONFIG_URL" ]; then
     fi
 fi
 
-# 5. 再次從命令列參數解析，確保命令列參數擁有絕對最高的優先級
-# 這樣即使用戶同時在遠端設定檔和命令列中設定了同一個變數，也會以命令列為準。
+# 5. 再次從命令列參數解析，確保最高優先級
 for arg in "$@"; do
     case $arg in
         LOG_FILE=*) LOG_FILE="${arg#*=}" ;; 
@@ -78,21 +71,17 @@ for arg in "$@"; do
 done
 
 # --- 參數檢查 ---
-# 檢查必要的 LOG_FILE 參數
 if [ -z "$LOG_FILE" ]; then
     echo "錯誤: 未指定 LOG_FILE。"
     echo "使用方法: $0 LOG_FILE=/path/to/logfile [...]"
     exit 1
 fi
-
-# 檢查 Log 檔案是否存在
 if [ ! -f "$LOG_FILE" ]; then
     echo "錯誤：找不到檔案在 $LOG_FILE"
     exit 1
 fi
 
 # --- 函式區 ---
-# 定義一個函式來生成 prompt，這樣可以串流處理，避免將整個 Log 讀入記憶體
 get_prompt() {
     echo "請分析以下 Log 內容，並提供一個簡潔的摘要。請以正體中文回覆重點摘要。請列出："
     echo "1. 重要的錯誤訊息（如果有）。"
@@ -103,31 +92,35 @@ get_prompt() {
     echo "--- Log 內容結束 ---"
 }
 
-# --- 函式：呼叫 Ollama API ---
-# 接收模型名稱作為參數 $1
+# --- 函式：呼叫 Ollama API (已修改) ---
 call_ollama_api() {
     local model_to_use="$1"
     local start_time
     start_time=$(date +%s)
 
-    ( 
+    # 先將 API 回應存到變數中
+    local api_response
+    api_response=$(( 
         printf '{"model": "%s", "stream": false, "prompt": ' "$model_to_use"
         get_prompt | jq -Rs .
         printf '}'
     ) | curl -s -X POST "$OLLAMA_API_URL" \
         -H "Content-Type: application/json" \
         -d @- \
-        | jq -r '.response'
+        | jq -r '.response')
 
     local end_time
     end_time=$(date +%s)
     local duration=$((end_time - start_time))
-    API_DURATION=$duration # 將執行時間存到全域變數
+    
     echo "($model_to_use) API call took $duration seconds." >&2
+    
+    # 將執行時間和 API 回應都輸出到 STDOUT
+    echo "$duration"
+    echo "$api_response"
 }
 
-# --- 函式：呼叫 OpenRouter API ---
-# 接收模型名稱作為參數 $1
+# --- 函式：呼叫 OpenRouter API (已修改) ---
 call_openrouter_api() {
     local model_to_use="$1"
     if [ "$OPENROUTER_API_KEY" = "YOUR_OPENROUTER_API_KEY" ]; then
@@ -141,7 +134,9 @@ call_openrouter_api() {
     local start_time
     start_time=$(date +%s)
 
-    ( 
+    # 先將 API 回應存到變數中
+    local api_response
+    api_response=$(( 
         printf '{"model": "%s", "messages": [{"role": "user", "content": ' "$model_to_use"
         get_prompt | jq -Rs .
         printf '}]}'
@@ -151,16 +146,20 @@ call_openrouter_api() {
         -H "HTTP-Referer: $APP_URL" \
         -H "X-Title: $APP_TITLE" \
         -d @- \
-        | jq -r '.choices[0].message.content'
+        | jq -r '.choices[0].message.content')
 
     local end_time
     end_time=$(date +%s)
     local duration=$((end_time - start_time))
-    API_DURATION=$duration # 將執行時間存到全域變數
+
     echo "($model_to_use) API call took $duration seconds." >&2
+    
+    # 將執行時間和 API 回應都輸出到 STDOUT
+    echo "$duration"
+    echo "$api_response"
 }
 
-# --- 主程式：根據選擇的服務呼叫對應的函式 ---
+# --- 主程式：(已修改) ---
 echo "正在使用 $API_SERVICE 服務分析 Log 檔案..."
 
 # 初始化共用變數
@@ -168,37 +167,41 @@ RESPONSE=""
 SELECTED_MODEL=""
 API_DURATION=0
 
-if [ "$API_SERVICE" = "ollama" ]; then
-    # 嘗試主要模型
-    SELECTED_MODEL="$OLLAMA_MODEL"
-    RESPONSE=$(call_ollama_api "$SELECTED_MODEL")
+execute_and_parse_api_call() {
+    local service_func="$1"
+    local model="$2"
+    
+    SELECTED_MODEL="$model"
+    # 接收合併的輸出
+    local combined_output
+    combined_output=$("$service_func" "$SELECTED_MODEL")
+    
+    # 從合併的輸出中解析出時間和回應
+    API_DURATION=$(echo "$combined_output" | head -n 1)
+    RESPONSE=$(echo "$combined_output" | tail -n +2)
+}
 
-    # 如果失敗且有備用模型，則重試
+if [ "$API_SERVICE" = "ollama" ]; then
+    execute_and_parse_api_call "call_ollama_api" "$OLLAMA_MODEL"
+
     if ([ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]) && [ -n "$OLLAMA_MODEL_BAK" ]; then
-        echo "主模型 ($SELECTED_MODEL) 呼叫失敗，嘗試備用模型 ($OLLAMA_MODEL_BAK)..." >&2
-        SELECTED_MODEL="$OLLAMA_MODEL_BAK"
-        RESPONSE=$(call_ollama_api "$SELECTED_MODEL")
+        echo "主模型 ($OLLAMA_MODEL) 呼叫失敗，嘗試備用模型 ($OLLAMA_MODEL_BAK)..." >&2
+        execute_and_parse_api_call "call_ollama_api" "$OLLAMA_MODEL_BAK"
     fi
 
 elif [ "$API_SERVICE" = "openrouter" ]; then
-    # 嘗試主要模型
-    SELECTED_MODEL="$OPENROUTER_MODEL"
-    RESPONSE=$(call_openrouter_api "$SELECTED_MODEL")
+    execute_and_parse_api_call "call_openrouter_api" "$OPENROUTER_MODEL"
 
-    # 如果失敗且有備用模型，則重試
     if ([ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]) && [ -n "$OPENROUTER_MODEL_BAK" ]; then
-        echo "主模型 ($SELECTED_MODEL) 呼叫失敗，嘗試備用模型 ($OPENROUTER_MODEL_BAK)..." >&2
-        SELECTED_MODEL="$OPENROUTER_MODEL_BAK"
-        RESPONSE=$(call_openrouter_api "$SELECTED_MODEL")
+        echo "主模型 ($OPENROUTER_MODEL) 呼叫失敗，嘗試備用模型 ($OPENROUTER_MODEL_BAK)..." >&2
+        execute_and_parse_api_call "call_openrouter_api" "$OPENROUTER_MODEL_BAK"
     fi
-
 else
     echo "錯誤：未知的 API 服務 '$API_SERVICE'。"
     exit 1
 fi
 
 # 輸出結果
-# 檢查最終的回應是否為空字串或字串 "null"
 if [ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]; then
     echo "API 請求失敗，或回傳內容為空 (empty or null)。請檢查設定、API 金鑰和網路連線。"
 else
