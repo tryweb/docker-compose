@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # ==============================================================================
-# Script Name: setup_scripts.sh (Version 6 - Robust .env Handling)
-# Description: 從 GitHub 下載 scripts，並設定權限。
-#              此版本修正了 .env 處理邏輯：在更新 scripts 目錄前，
-#              會先備份現有的 .env 檔案，待新版下載後再還原進行比對，
-#              確保使用者的設定在更新過程中被完整保留。
+# Script Name: setup_scripts.sh (Version 7 - Merge & Overwrite Strategy)
+# Description: 從 GitHub 下載 scripts。此版本採用合併更新策略：
+#              如果 scripts 目錄已存在，則將新版下載至暫存目錄，
+#              然後覆蓋回原目錄。這能確保更新腳本的同時，
+#              保留使用者自行新增的檔案（例如 exceptions.txt）。
 # Author: Gemini
 # Dependencies: curl, wget, jq
 # ==============================================================================
@@ -20,19 +20,19 @@ NC='\033[0m' # No Color
 # GitHub API URL
 API_URL="https://api.github.com/repos/tryweb/docker-compose/contents/scripts"
 TARGET_DIR="scripts"
-ENV_BACKUP_FILE=".env.bak"
+DOWNLOAD_DIR="${TARGET_DIR}.download" # 暫存下載目錄
 
 # --- 函式定義 ---
 
 # 腳本結束時執行的清理函式
 cleanup() {
-  if [ -f "$ENV_BACKUP_FILE" ]; then
-    rm -f "$ENV_BACKUP_FILE"
-    echo -e "\n${BLUE}已清除暫時備份檔案 ($ENV_BACKUP_FILE)。${NC}"
+  if [ -d "$DOWNLOAD_DIR" ]; then
+    rm -rf "$DOWNLOAD_DIR"
+    echo -e "\n${BLUE}已清除暫時下載目錄 ($DOWNLOAD_DIR)。${NC}"
   fi
 }
 
-# 設定 trap，確保無論腳本如何結束（正常、錯誤、Ctrl+C），都會執行 cleanup 函式
+# 設定 trap，確保無論腳本如何結束，都會執行 cleanup 函式
 trap cleanup EXIT
 
 # 檢查必要的指令是否存在
@@ -53,43 +53,50 @@ check_dependencies() {
     echo -e "${GREEN}所有必要的套件都已安裝。${NC}\n"
 }
 
-# 從 GitHub 下載檔案（包含 .env 備份與還原）
+# 從 GitHub 下載檔案（採用合併更新策略）
 download_files() {
     echo -e "${BLUE}step 2 -> 準備從 GitHub 下載檔案...${NC}"
-    
-    # --- 新增：備份 .env ---
-    if [ -f "${TARGET_DIR}/.env" ]; then
-        echo "偵測到現有的 '${TARGET_DIR}/.env' 檔案，正在進行備份..."
-        cp "${TARGET_DIR}/.env" "$ENV_BACKUP_FILE"
-        echo -e "${GREEN}已將 .env 備份至 '$ENV_BACKUP_FILE'。${NC}"
-    fi
 
-    # --- 原有的刪除與重建邏輯 ---
+    local download_target=""
+
+    # 根據目標目錄是否存在，決定下載策略
     if [ -d "$TARGET_DIR" ]; then
-        echo -e "${YELLOW}目錄 '$TARGET_DIR' 已存在，將會被移除並重新下載以確保內容最新。${NC}"
-        rm -rf "$TARGET_DIR"
+        echo "目錄 '$TARGET_DIR' 已存在，將採用合併更新模式。"
+        # 清理可能存在的舊暫存檔並建立新的
+        rm -rf "$DOWNLOAD_DIR"
+        mkdir -p "$DOWNLOAD_DIR"
+        download_target="$DOWNLOAD_DIR"
+        echo "檔案將暫時下載至 '$DOWNLOAD_DIR'。"
+    else
+        echo "目錄 '$TARGET_DIR' 不存在，將直接建立並下載。"
+        mkdir -p "$TARGET_DIR"
+        download_target="$TARGET_DIR"
     fi
-    mkdir -p "$TARGET_DIR"
-    echo -e "已建立目錄 '$TARGET_DIR'。"
 
     download_urls=$(curl -sL "$API_URL" | jq -r '.[] | select(.type == "file") | .download_url')
 
     if [ -z "$download_urls" ]; then
         echo -e "${YELLOW}無法從 GitHub API 取得檔案列表。請檢查網路連線或 URL 是否正確。${NC}"
+        # 如果是更新模式，需要清理建立的暫存目錄
+        if [ "$download_target" == "$DOWNLOAD_DIR" ]; then
+            rm -rf "$DOWNLOAD_DIR"
+        fi
         exit 1
     fi
 
-    echo "正在下載檔案到 '$TARGET_DIR/'..."
-    echo "$download_urls" | wget -q --show-progress -P "$TARGET_DIR/" -i -
+    echo "正在下載檔案到 '$download_target/'..."
+    echo "$download_urls" | wget -q --show-progress -P "$download_target/" -i -
     
-    # --- 新增：還原 .env ---
-    if [ -f "$ENV_BACKUP_FILE" ]; then
-        echo "正在還原 .env 備份..."
-        mv "$ENV_BACKUP_FILE" "${TARGET_DIR}/.env"
-        echo -e "${GREEN}已將備份還原至 '${TARGET_DIR}/.env'。${NC}"
+    # 如果是更新模式，則執行複製覆蓋操作
+    if [ "$download_target" == "$DOWNLOAD_DIR" ]; then
+        echo "正在將新檔案合併至 '$TARGET_DIR'..."
+        # 使用 cp -f 來強制覆蓋同名檔案
+        cp -f "${DOWNLOAD_DIR}"/* "${TARGET_DIR}/"
+        echo -e "${GREEN}檔案合併完成。您自訂的檔案已被保留。${NC}"
+        # 清理工作交給 trap function 即可
     fi
 
-    echo -e "${GREEN}所有檔案下載完成。${NC}\n"
+    echo -e "${GREEN}檔案下載與更新操作完成。${NC}\n"
 }
 
 # 設定 .sh 檔案為可執行
@@ -129,7 +136,7 @@ create_env_file() {
             echo -e "${GREEN}您的 .env 檔案已包含所有範本中的參數，無需更新。${NC}"
         else
             echo -e "${YELLOW}偵測到以下參數在您的 .env 中不存在，將從 .env.example 自動補上：${NC}"
-            echo -e "\n# --- 以下是由 setup_script.sh 於 $(date) 自動新增的參數 ---" >> .env
+            echo -e "\n# --- 以下是由 setup_script.sh 於 $(date '+%Y-%m-%d %H:%M:%S') 自動新增的參數 ---" >> .env
             for key in $missing_keys; do
                 grep "^${key}=" .env.example >> .env
                 echo -e "  - ${GREEN}已新增: ${key}${NC}"
