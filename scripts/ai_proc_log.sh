@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # --- 設定載入 ---
-# 優先級: 命令列參數 > 環境變數 > .env 檔案 > 腳本內預設值
+# 優先級: 命令列參數 > 遠端設定檔 > 環境變數 > .env 檔案 > 腳本內預設值
 
 # 取得腳本所在的目錄
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-# 如果 .env 檔案存在，則載入它
+# 1. 如果 .env 檔案存在，則載入它 (優先級最低)
 # 這會將 .env 檔案中的變數載入為環境變數
 if [ -f "$SCRIPT_DIR/.env" ]; then
   set -a # 自動將後續定義的變數導出為環境變數
@@ -14,8 +14,7 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
   set +a # 取消自動導出
 fi
 
-# --- 參數設定區 ---
-# 為所有設定變數提供預設值 (如果環境變數或 .env 未設定)
+# 2. 為所有設定變數提供腳本內預設值 (如果環境變數或 .env 未設定)
 # 格式: ${VARIABLE_NAME:-DEFAULT_VALUE}
 API_SERVICE="${API_SERVICE:-openrouter}"
 OLLAMA_API_URL="${OLLAMA_API_URL:-http://localhost:11434/api/generate}"
@@ -26,8 +25,9 @@ OPENROUTER_MODEL="${OPENROUTER_MODEL:-openai/gpt-4o-mini}"
 OPENROUTER_MODEL_BAK="${OPENROUTER_MODEL_BAK:-}" # 備用模型，預設為空
 OPENROUTER_API_URL="${OPENROUTER_API_URL:-https://openrouter.ai/api/v1/chat/completions}"
 LOG_FILE="" # LOG_FILE 必須由參數提供
+REMOTE_CONFIG_URL="${REMOTE_CONFIG_URL:-}" # 遠端設定 URL，預設為空
 
-# 從命令列參數解析，這會覆蓋所有先前的設定 (最高優先級)
+# 3. 從命令列參數解析，這會覆蓋所有先前的設定 (優先級最高)
 for arg in "$@"; do
     case $arg in
         LOG_FILE=*) LOG_FILE="${arg#*=}" ;; 
@@ -39,6 +39,41 @@ for arg in "$@"; do
         OPENROUTER_MODEL=*) OPENROUTER_MODEL="${arg#*=}" ;; 
         OPENROUTER_MODEL_BAK=*) OPENROUTER_MODEL_BAK="${arg#*=}" ;; 
         OPENROUTER_API_URL=*) OPENROUTER_API_URL="${arg#*=}" ;; 
+        REMOTE_CONFIG_URL=*) REMOTE_CONFIG_URL="${arg#*=}" ;; # 新增此行
+    esac
+done
+
+# 4. 如果定義了遠端設定 URL，則嘗試載入 (它的優先級僅次於命令列參數)
+if [ -n "$REMOTE_CONFIG_URL" ]; then
+    echo "正在從遠端載入設定: $REMOTE_CONFIG_URL" >&2
+    # 使用 curl 下載設定內容，並透過 <() process substitution 和 source 指令載入
+    # -sSL: 靜默模式但顯示錯誤, 跟隨轉址
+    if REMOTE_SETTINGS=$(curl -sSL "$REMOTE_CONFIG_URL"); then
+        # 檢查下載內容是否為空
+        if [ -n "$REMOTE_SETTINGS" ]; then
+            set -a
+            # 載入遠端設定。注意：這可能會被後續的命令列參數再次覆蓋
+            source <(echo "$REMOTE_SETTINGS")
+            set +a
+            echo "遠端設定載入成功。" >&2
+        else
+            echo "警告: 遠端設定檔內容為空。" >&2
+        fi
+    else
+        echo "警告: 無法從遠端 URL 下載設定，將使用本地設定。" >&2
+    fi
+fi
+
+# 5. 再次從命令列參數解析，確保命令列參數擁有絕對最高的優先級
+# 這樣即使用戶同時在遠端設定檔和命令列中設定了同一個變數，也會以命令列為準。
+for arg in "$@"; do
+    case $arg in
+        LOG_FILE=*) LOG_FILE="${arg#*=}" ;; 
+        API_SERVICE=*) API_SERVICE="${arg#*=}" ;; 
+        OLLAMA_MODEL=*) OLLAMA_MODEL="${arg#*=}" ;; 
+        OLLAMA_MODEL_BAK=*) OLLAMA_MODEL_BAK="${arg#*=}" ;; 
+        OPENROUTER_MODEL=*) OPENROUTER_MODEL="${arg#*=}" ;; 
+        OPENROUTER_MODEL_BAK=*) OPENROUTER_MODEL_BAK="${arg#*=}" ;;
     esac
 done
 
@@ -46,7 +81,7 @@ done
 # 檢查必要的 LOG_FILE 參數
 if [ -z "$LOG_FILE" ]; then
     echo "錯誤: 未指定 LOG_FILE。"
-    echo "使用方法: $0 LOG_FILE=/path/to/logfile [API_SERVICE=ollama] [...]"
+    echo "使用方法: $0 LOG_FILE=/path/to/logfile [...]"
     exit 1
 fi
 

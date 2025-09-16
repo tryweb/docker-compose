@@ -136,7 +136,7 @@ send_discord_notification() {
         echo "$(date '+%Y-%m-%d %H:%M:%S') - 啟用 AI 摘要功能" >>"$LOG_FILE"
         local filtered_log="${LOG_FILE}.filtered"; local summary_file="${LOG_FILE}.summary"
         grep -v "$GREP_EXCLUDE_PATTERN" "$LOG_FILE" > "$filtered_log"
-        bash "$AI_SCRIPT" LOG_FILE="$filtered_log" > "$summary_file"
+        bash "$AI_SCRIPT" LOG_FILE="$filtered_log" REMOTE_CONFIG_URL="$REMOTE_CONFIG_URL" > "$summary_file"
         if [ -s "$summary_file" ]; then
             file_to_send="$summary_file"
             if [ "$status" = "OK" ]; then title="✅ AI Summary (Success): ${SRC_BASENAME}"; elif [ "$status" = "ERR" ]; then title="❌ AI Summary (Failure): ${SRC_BASENAME}"; else title="AI Summary for ${SRC_BASENAME}"; fi
