@@ -11,6 +11,7 @@ fi
 
 # --- 命令列參數解析 ---
 DRY_RUN=false
+WHOLE_FILE=false
 CLI_EXCLUDE_PATTERNS=()
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -29,7 +30,8 @@ while [[ "$#" -gt 0 ]]; do
         --grep-exclude) CLI_GREP_EXCLUDE="$2"; shift ;;
         --send-discord) CLI_SEND_DISCORD=true ;;
         --summarize) CLI_SUMMARIZE=true ;;
-        --dry-run|-n) DRY_RUN=true ;; # -n 是 rsync 的 dry-run, 此處沿用
+        --dry-run) DRY_RUN=true ;;
+        -w|--whole-file) WHOLE_FILE=true ;;
         *) echo "未知參數: $1" >>/dev/stderr; exit 1 ;;
     esac
     shift
@@ -39,16 +41,16 @@ done
 SOURCE_DIR="${CLI_SOURCE_DIR:-$SOURCE_DIR}"
 DEST_ROOT="${CLI_DEST_ROOT:-${DEST_ROOT:-/volumeUSB1/usbshare1-2/TP-Data-Server}}"
 EXCEPTIONS_FILE="${CLI_EXCEPTIONS_FILE:-$EXCEPTIONS_FILE}"
-LOG_DIR_BASE="${CLI_LOG_DIR:-${LOG_DIR:-/volume1/homes/tprsynclog}}"
+LOG_DIR_BASE="${CLI_LOG_DIR:-${LOG_DIR:-/var/log/rsynclog}}"
 SCRIPT_NAME="${CLI_NAME:-${NAME:-rsync_backup}}"
-EXCLUDE_FILE="${CLI_EXCLUDE_FILE:-${EXCLUDE_FILE:-/volume1/homes/nonecopy}}"
+EXCLUDE_FILE="${CLI_EXCLUDE_FILE:-${EXCLUDE_FILE:-}}"
 BW_LIMIT="${CLI_BW_LIMIT:-${BW_LIMIT:-10000}}"
 RETENTION_DAYS="${CLI_RETENTION_DAYS:-${RETENTION_DAYS:-7}}"
 SEND_DISCORD="${CLI_SEND_DISCORD:-${SEND_DISCORD:-true}}"
-DISCORD_SCRIPT="${CLI_DISCORD_SCRIPT:-${DISCORD_SCRIPT:-/volume1/homes/send_logs_to_discord.sh}}"
+DISCORD_SCRIPT="${CLI_DISCORD_SCRIPT:-${DISCORD_SCRIPT:-/root/scripts/send_logs_to_discord.sh}}"
 DISCORD_WEBHOOK="${CLI_DISCORD_WEBHOOK:-$DISCORD_WEBHOOK}"
 SUMMARIZE="${CLI_SUMMARIZE:-${SUMMARIZE:-false}}"
-AI_SCRIPT="${CLI_AI_SCRIPT:-${AI_SCRIPT:-/home/jonathan/github/docker-compose/scripts/ai_proc_log.sh}}"
+AI_SCRIPT="${CLI_AI_SCRIPT:-${AI_SCRIPT:-/root/scripts/ai_proc_log.sh}}"
 GREP_EXCLUDE_PATTERN="${CLI_GREP_EXCLUDE:-${GREP_EXCLUDE_PATTERN:-"sending incremental file list"}}"
 EXCLUDE_PATTERNS=()
 if [ ${#CLI_EXCLUDE_PATTERNS[@]} -gt 0 ]; then
@@ -56,6 +58,8 @@ if [ ${#CLI_EXCLUDE_PATTERNS[@]} -gt 0 ]; then
 elif [ -n "$RSYNC_EXCLUDE_PATTERNS" ]; then
     read -r -a EXCLUDE_PATTERNS <<< "$RSYNC_EXCLUDE_PATTERNS"
 fi
+NFS_MOUNTS="${NFS_MOUNTS:-}"
+WHOLE_FILE="${WHOLE_FILE:-${RSYNC_WHOLE_FILE:-false}}"
 
 # --- 必要參數檢查 ---
 if [ -z "$SOURCE_DIR" ]; then
@@ -79,12 +83,60 @@ LOCK_FILE="/tmp/${SCRIPT_NAME}_$(echo -n "$SOURCE_DIR" | md5sum | awk '{print $1
 
 # --- 函式定義 ---
 
-# 【修改】函式：發送簡單的錯誤通知，用於鎖定失敗等情況
+# 函式：檢查 NFS 掛載點是否正確
+check_nfs_mounts() {
+  local nfs_mounts_json=$1
+  local mount_points=()
+  local expected_sources=()
+  local i=0
+
+  # Check if jq is installed
+  if ! command -v jq &> /dev/null; then
+    echo "Error: 'jq' is not installed. Please install it to parse the JSON."
+    return 1
+  fi
+
+  # Parse the JSON and store mount points and sources in arrays
+  while read -r mount_point expected_source; do
+    mount_points[i]="$mount_point"
+    expected_sources[i]="$expected_source"
+    ((i++))
+  done < <(echo "$nfs_mounts_json" | jq -r '
+    .[] |
+    to_entries[] |
+    "\(.key) \(.value)"
+  ')
+
+  # Check each mount point in a separate loop
+  for ((j=0; j<i; j++)); do
+    mount_point="${mount_points[j]}"
+    expected_source="${expected_sources[j]}"
+    echo "Checking mount point: $mount_point"
+
+    # Check if the mount point directory exists
+    if [ ! -d "$mount_point" ]; then
+      echo "Error: Directory does not exist: $mount_point"
+      return 1
+    fi
+
+    # Check if the mount point is correctly mounted
+    if ! df -P "$mount_point" | grep -q "^$expected_source"; then
+      echo "Error: Mount point $mount_point is not correctly mounted to $expected_source"
+      echo "Current mounts:"
+      df -P "$mount_point"
+      return 1
+    fi
+    echo "Success: $mount_point is correctly mounted."
+  done
+
+  return 0
+}
+
+# 函式：發送簡單的錯誤通知，用於鎖定失敗或 NFS 檢查失敗
 send_simple_discord_error() {
     local error_message="$1"
     local error_title="🚨 Backup Script Alert: ${SRC_BASENAME}"
     
-    # 直接建立一個臨時文件來傳遞簡單的錯誤訊息
     local tmp_err_file="${LOG_FILE}.err_msg"
     echo "$error_message" > "$tmp_err_file"
 
@@ -97,14 +149,13 @@ send_simple_discord_error() {
     rm "$tmp_err_file"
 }
 
-# 【修改】函式：獲取鎖
+# 函式：獲取鎖
 acquire_lock() {
     exec 200>"$LOCK_FILE"
     if ! flock -n 200; then
         local log_msg="$(date '+%Y-%m-%d %H:%M:%S') - $SCRIPT_NAME ($SOURCE_DIR) 已在執行中，退出"
         echo "$log_msg" >>"$LOG_FILE"
         if [ "$SEND_DISCORD" = true ]; then
-            # 使用新的錯誤通知函式，發送帶有顏色的通知
             send_simple_discord_error "$SCRIPT_NAME for $SOURCE_DIR is already running. This backup was skipped."
         fi
         exit 1
@@ -113,7 +164,7 @@ acquire_lock() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - 獲得鎖定 (PID: $$, SOURCE: $SOURCE_DIR)" >>"$LOG_FILE"
 }
 
-# 【修改】函式：發送 Discord 通知（與上一版回答相同）
+# 函式：發送 Discord 通知
 send_discord_notification() {
     local status="$1"
     local msg_type=""
@@ -160,18 +211,30 @@ send_discord_notification() {
     [ -f "${LOG_FILE}.truncated" ] && rm "${LOG_FILE}.truncated"
 }
 
-# 【修改】函式：腳本清理
+# 函式：腳本清理
 cleanup() {
-    local status="$1" # 接收狀態
+    local status="$1"
     echo "$(date '+%Y-%m-%d %H:%M:%S') - 腳本執行完畢 (SOURCE: $SOURCE_DIR, DRY_RUN: $DRY_RUN, STATUS: $status)" >>"$LOG_FILE"
-    send_discord_notification "$status" # 將狀態傳給通知函式
+    send_discord_notification "$status"
 }
 
 # --- 主程式開始 ---
 
 acquire_lock
-# 【修改】trap：當腳本被中斷時，視為錯誤，呼叫 cleanup "ERR"
 trap 'cleanup "ERR"; exit 1' INT TERM
+
+echo "-----$DATE_TITLE-----" >>"$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - 備份開始 (PID: $$, SOURCE: $SOURCE_DIR, DRY_RUN: $DRY_RUN, WHOLE_FILE: $WHOLE_FILE)" >>"$LOG_FILE"
+
+
+# --- 執行 NFS 掛載點檢查 ---
+if [ -n "$NFS_MOUNTS" ]; then
+    if ! check_nfs_mounts "$NFS_MOUNTS" >> "$LOG_FILE"; then
+        send_simple_discord_error "Backup for ${SRC_BASENAME} skipped due to missing/incorrect NFS mount."
+        cleanup "ERR"
+        exit 1
+    fi
+fi
 
 # ... 參數檢查 ...
 if [ -n "$EXCLUDE_FILE" ] && [ ! -f "$EXCLUDE_FILE" ]; then
@@ -190,12 +253,10 @@ else
     DEST_DIR="${DEST_ROOT}/${SRC_BASENAME}/"
 fi
 
-echo "-----$DATE_TITLE-----" >>"$LOG_FILE"
-echo "$(date '+%Y-%m-%d %H:%M:%S') - 備份開始 (PID: $$, SOURCE: $SOURCE_DIR, DRY_RUN: $DRY_RUN)" >>"$LOG_FILE"
-
 # --- Rsync 執行 ---
-RSYNC_CMD="rsync -ah --info=progress2 --stats --whole-file --delete"
+RSYNC_CMD="rsync -ah --info=progress2 --stats --delete"
 [ "$DRY_RUN" = true ] && RSYNC_CMD="$RSYNC_CMD --dry-run"
+[ "$WHOLE_FILE" = true ] && RSYNC_CMD="$RSYNC_CMD --whole-file"
 RSYNC_CMD="$RSYNC_CMD --bwlimit=$BW_LIMIT"
 [ -n "$EXCLUDE_FILE" ] && RSYNC_CMD="$RSYNC_CMD --exclude-from='$EXCLUDE_FILE'"
 for pattern in "${EXCLUDE_PATTERNS[@]}"; do
@@ -204,11 +265,10 @@ done
 RSYNC_CMD="$RSYNC_CMD '$SOURCE_DIR' '$DEST_DIR'"
 
 eval "$RSYNC_CMD" >>"$LOG_FILE" 2>&1
-# 【核心修改】立即捕獲 rsync 的結束代碼
 rsync_exit_code=$?
 
-# 【核心修改】根據結束代碼設定狀態並記錄日誌
-backup_status="ERR" # 預設為失敗
+# 根據結束代碼設定狀態並記錄日誌
+backup_status="ERR"
 if [ $rsync_exit_code -eq 0 ]; then
     backup_status="OK"
     if [ "$DRY_RUN" = true ]; then
