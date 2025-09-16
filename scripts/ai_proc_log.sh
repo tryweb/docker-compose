@@ -20,8 +20,10 @@ fi
 API_SERVICE="${API_SERVICE:-openrouter}"
 OLLAMA_API_URL="${OLLAMA_API_URL:-http://localhost:11434/api/generate}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-llama3}"
+OLLAMA_MODEL_BAK="${OLLAMA_MODEL_BAK:-}" # 備用模型，預設為空
 OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-YOUR_OPENROUTER_API_KEY}"
 OPENROUTER_MODEL="${OPENROUTER_MODEL:-openai/gpt-4o-mini}"
+OPENROUTER_MODEL_BAK="${OPENROUTER_MODEL_BAK:-}" # 備用模型，預設為空
 OPENROUTER_API_URL="${OPENROUTER_API_URL:-https://openrouter.ai/api/v1/chat/completions}"
 LOG_FILE="" # LOG_FILE 必須由參數提供
 
@@ -32,19 +34,19 @@ for arg in "$@"; do
         API_SERVICE=*) API_SERVICE="${arg#*=}" ;; 
         OLLAMA_API_URL=*) OLLAMA_API_URL="${arg#*=}" ;; 
         OLLAMA_MODEL=*) OLLAMA_MODEL="${arg#*=}" ;; 
+        OLLAMA_MODEL_BAK=*) OLLAMA_MODEL_BAK="${arg#*=}" ;; 
         OPENROUTER_API_KEY=*) OPENROUTER_API_KEY="${arg#*=}" ;; 
         OPENROUTER_MODEL=*) OPENROUTER_MODEL="${arg#*=}" ;; 
+        OPENROUTER_MODEL_BAK=*) OPENROUTER_MODEL_BAK="${arg#*=}" ;; 
         OPENROUTER_API_URL=*) OPENROUTER_API_URL="${arg#*=}" ;; 
     esac
 done
-
-
 
 # --- 參數檢查 ---
 # 檢查必要的 LOG_FILE 參數
 if [ -z "$LOG_FILE" ]; then
     echo "錯誤: 未指定 LOG_FILE。"
-    echo "使用方法: $0 LOG_FILE=/path/to/logfile [API_SERVICE=ollama] [OPENROUTER_API_KEY=... ]"
+    echo "使用方法: $0 LOG_FILE=/path/to/logfile [API_SERVICE=ollama] [...]"
     exit 1
 fi
 
@@ -54,7 +56,7 @@ if [ ! -f "$LOG_FILE" ]; then
     exit 1
 fi
 
-# --- 主程式 ---
+# --- 函式區 ---
 # 定義一個函式來生成 prompt，這樣可以串流處理，避免將整個 Log 讀入記憶體
 get_prompt() {
     echo "請分析以下 Log 內容，並提供一個簡潔的摘要。請以正體中文回覆重點摘要。請列出："
@@ -67,12 +69,14 @@ get_prompt() {
 }
 
 # --- 函式：呼叫 Ollama API ---
+# 接收模型名稱作為參數 $1
 call_ollama_api() {
+    local model_to_use="$1"
     local start_time
     start_time=$(date +%s)
 
     ( 
-        printf '{"model": "%s", "stream": false, "prompt": ' "$OLLAMA_MODEL"
+        printf '{"model": "%s", "stream": false, "prompt": ' "$model_to_use"
         get_prompt | jq -Rs .
         printf '}'
     ) | curl -s -X POST "$OLLAMA_API_URL" \
@@ -83,24 +87,27 @@ call_ollama_api() {
     local end_time
     end_time=$(date +%s)
     local duration=$((end_time - start_time))
-    echo "API call took $duration seconds." >&2
+    API_DURATION=$duration # 將執行時間存到全域變數
+    echo "($model_to_use) API call took $duration seconds." >&2
 }
 
 # --- 函式：呼叫 OpenRouter API ---
+# 接收模型名稱作為參數 $1
 call_openrouter_api() {
+    local model_to_use="$1"
     if [ "$OPENROUTER_API_KEY" = "YOUR_OPENROUTER_API_KEY" ]; then
-        echo "錯誤：請先將 OPENROUTER_API_KEY 替換成你的金鑰。"
+        echo "錯誤：請先將 OPENROUTER_API_KEY 替換成你的金鑰。" >&2
         exit 1
     fi
 
     local APP_URL="https://github.com/tryweb"
     local APP_TITLE="AI_Proc_Log"
-	
+    
     local start_time
     start_time=$(date +%s)
 
     ( 
-        printf '{"model": "%s", "messages": [{"role": "user", "content": ' "$OPENROUTER_MODEL"
+        printf '{"model": "%s", "messages": [{"role": "user", "content": ' "$model_to_use"
         get_prompt | jq -Rs .
         printf '}]}'
     ) | curl -s -X POST "$OPENROUTER_API_URL" \
@@ -114,28 +121,55 @@ call_openrouter_api() {
     local end_time
     end_time=$(date +%s)
     local duration=$((end_time - start_time))
-    echo "API call took $duration seconds." >&2
+    API_DURATION=$duration # 將執行時間存到全域變數
+    echo "($model_to_use) API call took $duration seconds." >&2
 }
-
-
-
 
 # --- 主程式：根據選擇的服務呼叫對應的函式 ---
 echo "正在使用 $API_SERVICE 服務分析 Log 檔案..."
 
+# 初始化共用變數
+RESPONSE=""
+SELECTED_MODEL=""
+API_DURATION=0
+
 if [ "$API_SERVICE" = "ollama" ]; then
-    RESPONSE=$(call_ollama_api)
+    # 嘗試主要模型
+    SELECTED_MODEL="$OLLAMA_MODEL"
+    RESPONSE=$(call_ollama_api "$SELECTED_MODEL")
+
+    # 如果失敗且有備用模型，則重試
+    if ([ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]) && [ -n "$OLLAMA_MODEL_BAK" ]; then
+        echo "主模型 ($SELECTED_MODEL) 呼叫失敗，嘗試備用模型 ($OLLAMA_MODEL_BAK)..." >&2
+        SELECTED_MODEL="$OLLAMA_MODEL_BAK"
+        RESPONSE=$(call_ollama_api "$SELECTED_MODEL")
+    fi
+
 elif [ "$API_SERVICE" = "openrouter" ]; then
-    RESPONSE=$(call_openrouter_api)
+    # 嘗試主要模型
+    SELECTED_MODEL="$OPENROUTER_MODEL"
+    RESPONSE=$(call_openrouter_api "$SELECTED_MODEL")
+
+    # 如果失敗且有備用模型，則重試
+    if ([ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]) && [ -n "$OPENROUTER_MODEL_BAK" ]; then
+        echo "主模型 ($SELECTED_MODEL) 呼叫失敗，嘗試備用模型 ($OPENROUTER_MODEL_BAK)..." >&2
+        SELECTED_MODEL="$OPENROUTER_MODEL_BAK"
+        RESPONSE=$(call_openrouter_api "$SELECTED_MODEL")
+    fi
+
 else
     echo "錯誤：未知的 API 服務 '$API_SERVICE'。"
     exit 1
 fi
 
 # 輸出結果
-if [ -z "$RESPONSE" ]; then
-    echo "API 請求失敗，或回傳內容為空。請檢查設定和網路連線。"
+# 檢查最終的回應是否為空字串或字串 "null"
+if [ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]; then
+    echo "API 請求失敗，或回傳內容為空 (empty or null)。請檢查設定、API 金鑰和網路連線。"
 else
     echo "--- Log 摘要與分析結果 ---"
+    echo "分析模型: $SELECTED_MODEL"
+    echo "API 請求時間: $API_DURATION 秒"
+    echo "---------------------------------"
     echo "$RESPONSE"
 fi
