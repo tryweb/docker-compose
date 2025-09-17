@@ -1,6 +1,6 @@
 #!/bin/bash
 export LANG=en_US.utf8
-VER="1.0.0"
+VER="1.0.1"
 
 # --- 核心初始化 ---
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -26,8 +26,6 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
 fi
 
 # --- 命令列參數解析 (最高優先級) ---
-DRY_RUN=false
-WHOLE_FILE=false
 CLI_EXCLUDE_PATTERNS=()
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -48,8 +46,8 @@ while [[ "$#" -gt 0 ]]; do
         --grep-exclude) CLI_GREP_EXCLUDE="$2"; shift ;;
         --send-discord) CLI_SEND_DISCORD=true ;;
         --summarize) CLI_SUMMARIZE=true ;;
-        --dry-run) DRY_RUN=true ;;
-        -w|--whole-file) WHOLE_FILE=true ;;
+        --dry-run) CLI_DRY_RUN=true ;;
+        -w|--whole-file) CLI_WHOLE_FILE=true ;;
         -v|--version) show_version ;;
         *) echo "未知參數: $1" >&2; exit 1 ;;
     esac
@@ -74,7 +72,8 @@ AI_SCRIPT="${CLI_AI_SCRIPT:-$AI_SCRIPT}"
 GREP_EXCLUDE_PATTERN="${CLI_GREP_EXCLUDE:-$GREP_EXCLUDE_PATTERN}"
 RCLONE_ARGS="${CLI_RCLONE_ARGS:-$RCLONE_ARGS}"
 NFS_MOUNTS="${NFS_MOUNTS:-}"
-WHOLE_FILE="${WHOLE_FILE:-${RSYNC_WHOLE_FILE:-false}}"
+WHOLE_FILE="${CLI_WHOLE_FILE:-${RSYNC_WHOLE_FILE:-false}}"
+DRY_RUN="${CLI_DRY_RUN:-${DRY_RUN:-false}}"
 
 EXCLUDE_PATTERNS=()
 if [ ${#CLI_EXCLUDE_PATTERNS[@]} -gt 0 ]; then
@@ -189,4 +188,3 @@ find "$LOG_DIR" -type f -name "${SCRIPT_NAME}_${SRC_BASENAME}_*.log" -mtime +"$R
 
 # --- 腳本結束 ---
 cleanup "$backup_status"
-
