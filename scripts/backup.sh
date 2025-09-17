@@ -120,7 +120,7 @@ if [ "$TOOL" = "rsync" ] && [ -n "$NFS_MOUNTS" ]; then
     fi
 fi
 
-if [ -n "$EXCLUDE_FILE" ] && [ ! -f "$EXCLUDE_file" ]; then
+if [ -n "$EXCLUDE_FILE" ] && [ ! -f "$EXCLUDE_FILE" ]; then
     echo "警告：排除清單檔案 $EXCLUDE_FILE 不存在" >>"$LOG_FILE"; EXCLUDE_FILE=""
 fi
 
