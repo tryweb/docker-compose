@@ -17,7 +17,7 @@
 1.  **一鍵下載並安裝**
     執行以下指令，它會自動下載所有腳本至 `scripts` 目錄，並建立設定檔範本。
     ```sh
-    curl -sSL [https://raw.githubusercontent.com/tryweb/docker-compose/main/scripts/setup_scripts.sh](https://raw.githubusercontent.com/tryweb/docker-compose/main/scripts/setup_scripts.sh) | bash
+    curl -sSL https://raw.githubusercontent.com/tryweb/docker-compose/main/scripts/setup_scripts.sh | bash
     ```
 
 2.  **編輯設定檔**
