@@ -9,6 +9,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # 1. 如果 .env 檔案存在，則載入它 (優先級最低)
 if [ -f "$SCRIPT_DIR/.env" ]; then
   set -a
+  # shellcheck source=/dev/null
   source "$SCRIPT_DIR/.env"
   set +a
 fi
@@ -52,6 +53,7 @@ if [ -n "$REMOTE_CONFIG_URL" ]; then
     if REMOTE_SETTINGS=$(curl -sSL "$REMOTE_CONFIG_URL"); then
         if [ -n "$REMOTE_SETTINGS" ]; then
             set -a
+            # shellcheck source=/dev/null
             source <(echo "$REMOTE_SETTINGS")
             set +a
             echo "遠端設定載入成功。" >&2
@@ -103,11 +105,11 @@ call_ollama_api() {
 
     # 先將 API 回應存到變數中
     local api_response
-    api_response=$(( 
+    api_response=$( {
         printf '{"model": "%s", "stream": false, "prompt": ' "$model_to_use"
         get_prompt | jq -Rs .
         printf '}'
-    ) | curl -s -X POST "$OLLAMA_API_URL" \
+    } | curl -s -X POST "$OLLAMA_API_URL" \
         -H "Content-Type: application/json" \
         -d @- \
         | jq -r '.response')
@@ -139,11 +141,11 @@ call_openrouter_api() {
 
     # 先將 API 回應存到變數中
     local api_response
-    api_response=$(( 
+    api_response=$( {
         printf '{"model": "%s", "messages": [{"role": "user", "content": ' "$model_to_use"
         get_prompt | jq -Rs .
         printf '}]}'
-    ) | curl -s -X POST "$OPENROUTER_API_URL" \
+    } | curl -s -X POST "$OPENROUTER_API_URL" \
         -H "Authorization: Bearer $OPENROUTER_API_KEY" \
         -H "Content-Type: application/json" \
         -H "HTTP-Referer: $APP_URL" \
@@ -187,7 +189,7 @@ execute_and_parse_api_call() {
 if [ "$API_SERVICE" = "ollama" ]; then
     execute_and_parse_api_call "call_ollama_api" "$OLLAMA_MODEL"
 
-    if ([ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]) && [ -n "$OLLAMA_MODEL_BAK" ]; then
+    if { [ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]; } && [ -n "$OLLAMA_MODEL_BAK" ]; then
         echo "主模型 ($OLLAMA_MODEL) 呼叫失敗，嘗試備用模型 ($OLLAMA_MODEL_BAK)..." >&2
         execute_and_parse_api_call "call_ollama_api" "$OLLAMA_MODEL_BAK"
     fi
@@ -195,7 +197,7 @@ if [ "$API_SERVICE" = "ollama" ]; then
 elif [ "$API_SERVICE" = "openrouter" ]; then
     execute_and_parse_api_call "call_openrouter_api" "$OPENROUTER_MODEL"
 
-    if ([ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]) && [ -n "$OPENROUTER_MODEL_BAK" ]; then
+    if { [ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]; } && [ -n "$OPENROUTER_MODEL_BAK" ]; then
         echo "主模型 ($OPENROUTER_MODEL) 呼叫失敗，嘗試備用模型 ($OPENROUTER_MODEL_BAK)..." >&2
         execute_and_parse_api_call "call_openrouter_api" "$OPENROUTER_MODEL_BAK"
     fi
