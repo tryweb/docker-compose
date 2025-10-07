@@ -24,20 +24,25 @@ OPENROUTER_MODEL_BAK="${OPENROUTER_MODEL_BAK:-}"
 OPENROUTER_API_URL="${OPENROUTER_API_URL:-https://openrouter.ai/api/v1/chat/completions}"
 LOG_FILE=""
 REMOTE_CONFIG_URL="${REMOTE_CONFIG_URL:-}"
+PROMPT_TEXT="${PROMPT_TEXT:-請分析以下 Log 內容，並提供一個簡潔的摘要。請以正體中文回覆重點摘要。請列出：
+1. 重要的錯誤訊息（如果有）。
+2. 關鍵事件的時間點。
+3. 問題的可能原因和解決建議。}"
 
 # 3. 從命令列參數解析
 for arg in "$@"; do
     case $arg in
-        LOG_FILE=*) LOG_FILE="${arg#*=}" ;; 
-        API_SERVICE=*) API_SERVICE="${arg#*=}" ;; 
-        OLLAMA_API_URL=*) OLLAMA_API_URL="${arg#*=}" ;; 
-        OLLAMA_MODEL=*) OLLAMA_MODEL="${arg#*=}" ;; 
-        OLLAMA_MODEL_BAK=*) OLLAMA_MODEL_BAK="${arg#*=}" ;; 
-        OPENROUTER_API_KEY=*) OPENROUTER_API_KEY="${arg#*=}" ;; 
-        OPENROUTER_MODEL=*) OPENROUTER_MODEL="${arg#*=}" ;; 
-        OPENROUTER_MODEL_BAK=*) OPENROUTER_MODEL_BAK="${arg#*=}" ;; 
-        OPENROUTER_API_URL=*) OPENROUTER_API_URL="${arg#*=}" ;; 
+        LOG_FILE=*) LOG_FILE="${arg#*=}" ;;
+        API_SERVICE=*) API_SERVICE="${arg#*=}" ;;
+        OLLAMA_API_URL=*) OLLAMA_API_URL="${arg#*=}" ;;
+        OLLAMA_MODEL=*) OLLAMA_MODEL="${arg#*=}" ;;
+        OLLAMA_MODEL_BAK=*) OLLAMA_MODEL_BAK="${arg#*=}" ;;
+        OPENROUTER_API_KEY=*) OPENROUTER_API_KEY="${arg#*=}" ;;
+        OPENROUTER_MODEL=*) OPENROUTER_MODEL="${arg#*=}" ;;
+        OPENROUTER_MODEL_BAK=*) OPENROUTER_MODEL_BAK="${arg#*=}" ;;
+        OPENROUTER_API_URL=*) OPENROUTER_API_URL="${arg#*=}" ;;
         REMOTE_CONFIG_URL=*) REMOTE_CONFIG_URL="${arg#*=}" ;;
+        PROMPT_TEXT=*) PROMPT_TEXT="${arg#*=}" ;;
     esac
 done
 
@@ -61,12 +66,13 @@ fi
 # 5. 再次從命令列參數解析，確保最高優先級
 for arg in "$@"; do
     case $arg in
-        LOG_FILE=*) LOG_FILE="${arg#*=}" ;; 
-        API_SERVICE=*) API_SERVICE="${arg#*=}" ;; 
-        OLLAMA_MODEL=*) OLLAMA_MODEL="${arg#*=}" ;; 
-        OLLAMA_MODEL_BAK=*) OLLAMA_MODEL_BAK="${arg#*=}" ;; 
-        OPENROUTER_MODEL=*) OPENROUTER_MODEL="${arg#*=}" ;; 
+        LOG_FILE=*) LOG_FILE="${arg#*=}" ;;
+        API_SERVICE=*) API_SERVICE="${arg#*=}" ;;
+        OLLAMA_MODEL=*) OLLAMA_MODEL="${arg#*=}" ;;
+        OLLAMA_MODEL_BAK=*) OLLAMA_MODEL_BAK="${arg#*=}" ;;
+        OPENROUTER_MODEL=*) OPENROUTER_MODEL="${arg#*=}" ;;
         OPENROUTER_MODEL_BAK=*) OPENROUTER_MODEL_BAK="${arg#*=}" ;;
+        PROMPT_TEXT=*) PROMPT_TEXT="${arg#*=}" ;;
     esac
 done
 
@@ -83,10 +89,7 @@ fi
 
 # --- 函式區 ---
 get_prompt() {
-    echo "請分析以下 Log 內容，並提供一個簡潔的摘要。請以正體中文回覆重點摘要。請列出："
-    echo "1. 重要的錯誤訊息（如果有）。"
-    echo "2. 關鍵事件的時間點。"
-    echo "3. 問題的可能原因和解決建議。"
+    echo "$PROMPT_TEXT"
     echo "--- Log 內容開始 ---"
     cat "$LOG_FILE"
     echo "--- Log 內容結束 ---"

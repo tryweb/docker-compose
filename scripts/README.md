@@ -84,12 +84,23 @@
 -   **核心功能**：
     -   連接 Ollama 或 OpenRouter API。
     -   提示 AI 以繁體中文分析並總結日誌內容。
+    -   支援自訂 AI Prompt，讓您能針對不同場景調整分析方式。
 -   **使用方式**：
     主要由 `backup.sh` 自動呼叫，也可獨立使用。
     ```sh
     # 使用 .env 中的設定來分析指定日誌檔
     bash ./scripts/ai_proc_log.sh LOG_FILE=/path/to/some.log
+    
+    # 使用自訂 Prompt 來分析日誌
+    bash ./scripts/ai_proc_log.sh \
+      LOG_FILE=/path/to/some.log \
+      PROMPT_TEXT="請分析以下日誌，找出所有警告和錯誤訊息，並提供解決方案。"
     ```
+-   **可用參數**：
+    - `LOG_FILE`: (必要) 要分析的日誌檔案路徑
+    - `PROMPT_TEXT`: (可選) 自訂 AI 分析時使用的 Prompt 文字
+    - `API_SERVICE`: (可選) 選擇 API 服務 (`ollama` 或 `openrouter`)
+    - `OLLAMA_MODEL` / `OPENROUTER_MODEL`: (可選) 指定使用的 AI 模型
 
 ---
 
