@@ -18,10 +18,10 @@ fi
 API_SERVICE="${API_SERVICE:-openrouter}"
 OLLAMA_API_URL="${OLLAMA_API_URL:-http://localhost:11434/api/generate}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-llama3}"
-OLLAMA_MODEL_BAK="${OLLAMA_MODEL_BAK:-}"
+OLLAMA_MODEL_BAK="${OLLAMA_MODEL_BAK:-}"  # 支援逗號分隔的多個備用模型，例如：model1,model2,model3
 OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-YOUR_OPENROUTER_API_KEY}"
 OPENROUTER_MODEL="${OPENROUTER_MODEL:-openai/gpt-4o-mini}"
-OPENROUTER_MODEL_BAK="${OPENROUTER_MODEL_BAK:-}"
+OPENROUTER_MODEL_BAK="${OPENROUTER_MODEL_BAK:-}"  # 支援逗號分隔的多個備用模型，例如：model1,model2,model3
 OPENROUTER_API_URL="${OPENROUTER_API_URL:-https://openrouter.ai/api/v1/chat/completions}"
 LOG_FILE=""
 REMOTE_CONFIG_URL="${REMOTE_CONFIG_URL:-}"
@@ -190,17 +190,49 @@ execute_and_parse_api_call() {
 if [ "$API_SERVICE" = "ollama" ]; then
     execute_and_parse_api_call "call_ollama_api" "$OLLAMA_MODEL"
 
+    # 如果主模型失敗且有備用模型，依序嘗試所有備用模型
     if { [ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]; } && [ -n "$OLLAMA_MODEL_BAK" ]; then
-        echo "主模型 ($OLLAMA_MODEL) 呼叫失敗，嘗試備用模型 ($OLLAMA_MODEL_BAK)..." >&2
-        execute_and_parse_api_call "call_ollama_api" "$OLLAMA_MODEL_BAK"
+        # 將逗號分隔的備用模型字串轉換成陣列
+        IFS=',' read -ra BACKUP_MODELS <<< "$OLLAMA_MODEL_BAK"
+        
+        for backup_model in "${BACKUP_MODELS[@]}"; do
+            # 移除前後空白
+            backup_model=$(echo "$backup_model" | xargs)
+            
+            if [ -n "$backup_model" ]; then
+                echo "主模型 ($OLLAMA_MODEL) 呼叫失敗，嘗試備用模型 ($backup_model)..." >&2
+                execute_and_parse_api_call "call_ollama_api" "$backup_model"
+                
+                # 如果這個備用模型成功，就停止嘗試
+                if [ -n "$RESPONSE" ] && [ "$RESPONSE" != "null" ]; then
+                    break
+                fi
+            fi
+        done
     fi
 
 elif [ "$API_SERVICE" = "openrouter" ]; then
     execute_and_parse_api_call "call_openrouter_api" "$OPENROUTER_MODEL"
 
+    # 如果主模型失敗且有備用模型，依序嘗試所有備用模型
     if { [ -z "$RESPONSE" ] || [ "$RESPONSE" = "null" ]; } && [ -n "$OPENROUTER_MODEL_BAK" ]; then
-        echo "主模型 ($OPENROUTER_MODEL) 呼叫失敗，嘗試備用模型 ($OPENROUTER_MODEL_BAK)..." >&2
-        execute_and_parse_api_call "call_openrouter_api" "$OPENROUTER_MODEL_BAK"
+        # 將逗號分隔的備用模型字串轉換成陣列
+        IFS=',' read -ra BACKUP_MODELS <<< "$OPENROUTER_MODEL_BAK"
+        
+        for backup_model in "${BACKUP_MODELS[@]}"; do
+            # 移除前後空白
+            backup_model=$(echo "$backup_model" | xargs)
+            
+            if [ -n "$backup_model" ]; then
+                echo "主模型 ($OPENROUTER_MODEL) 呼叫失敗，嘗試備用模型 ($backup_model)..." >&2
+                execute_and_parse_api_call "call_openrouter_api" "$backup_model"
+                
+                # 如果這個備用模型成功，就停止嘗試
+                if [ -n "$RESPONSE" ] && [ "$RESPONSE" != "null" ]; then
+                    break
+                fi
+            fi
+        done
     fi
 else
     echo "錯誤：未知的 API 服務 '$API_SERVICE'。"
