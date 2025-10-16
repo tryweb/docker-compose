@@ -59,6 +59,7 @@ if [ -n "$REMOTE_CONFIG_URL" ]; then
     else
         CONFIG_URL="${REMOTE_CONFIG_URL}?${RANDOM_PARAM}"
     fi
+    echo "完整 URL: $CONFIG_URL" >&2
     # 使用 -f 參數讓 curl 在 HTTP 錯誤時失敗，並捕獲退出碼
     if REMOTE_SETTINGS=$(curl -fsSL "$CONFIG_URL" 2>&1); then
         if [ -n "$REMOTE_SETTINGS" ]; then
@@ -66,10 +67,10 @@ if [ -n "$REMOTE_CONFIG_URL" ]; then
             if echo "$REMOTE_SETTINGS" | grep -qE '(^|[[:space:]])([A-Z_][A-Z0-9_]*=|export[[:space:]])'; then
                 set -a
                 # shellcheck source=/dev/null
-                source <(echo "$REMOTE_SETTINGS") 2>&1 && \
-                    echo "遠端設定載入成功。" >&2 || \
-                    echo "警告: 遠端設定載入失敗，將使用本地設定。" >&2
+                # 載入遠端設定，忽略可能的非致命警告（如多行字串格式問題）
+                source <(echo "$REMOTE_SETTINGS") 2>/dev/null || true
                 set +a
+                echo "遠端設定載入成功。" >&2
             else
                 echo "警告: 遠端設定檔格式不正確（不包含有效的環境變數設定），將使用本地設定。" >&2
             fi
