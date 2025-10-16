@@ -53,7 +53,12 @@ if [ -n "$REMOTE_CONFIG_URL" ]; then
     echo "正在從遠端載入設定: $REMOTE_CONFIG_URL" >&2
     # 加上隨機參數避免快取問題
     RANDOM_PARAM="nocache=$(($(date +%s%N)))"
-    CONFIG_URL="${REMOTE_CONFIG_URL}${REMOTE_CONFIG_URL##*\?:+&}${REMOTE_CONFIG_URL//\?*/+?}${RANDOM_PARAM}"
+    # 正確處理 URL 查詢參數：如果 URL 已包含 ?，使用 &；否則使用 ?
+    if [[ "$REMOTE_CONFIG_URL" == *"?"* ]]; then
+        CONFIG_URL="${REMOTE_CONFIG_URL}&${RANDOM_PARAM}"
+    else
+        CONFIG_URL="${REMOTE_CONFIG_URL}?${RANDOM_PARAM}"
+    fi
     # 使用 -f 參數讓 curl 在 HTTP 錯誤時失敗，並捕獲退出碼
     if REMOTE_SETTINGS=$(curl -fsSL "$CONFIG_URL" 2>&1); then
         if [ -n "$REMOTE_SETTINGS" ]; then
