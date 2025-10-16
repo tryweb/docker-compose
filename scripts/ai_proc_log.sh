@@ -156,9 +156,9 @@ call_openrouter_api() {
     local start_time
     start_time=$(date +%s)
 
-    # 先將 API 回應存到變數中
-    local api_response
-    api_response=$( {
+    # 先取得完整的 API 回應以便檢查錯誤
+    local full_response
+    full_response=$( {
         printf '{"model": "%s", "messages": [{"role": "user", "content": ' "$model_to_use"
         get_prompt | jq -Rs .
         printf '}]}'
@@ -167,14 +167,35 @@ call_openrouter_api() {
         -H "Content-Type: application/json" \
         -H "HTTP-Referer: $APP_URL" \
         -H "X-Title: $APP_TITLE" \
-        -d @- \
-        | jq -r '.choices[0].message.content')
+        -d @-)
 
     local end_time
     end_time=$(date +%s)
     local duration=$((end_time - start_time))
 
     echo "($model_to_use) API call took $duration seconds." >&2
+    
+    # 檢查是否有錯誤訊息
+    local error_msg
+    error_msg=$(echo "$full_response" | jq -r '.error.message // empty' 2>/dev/null)
+    
+    if [ -n "$error_msg" ]; then
+        echo "API 錯誤: $error_msg" >&2
+        echo "完整回應: $full_response" >&2
+        # 輸出空值表示失敗
+        echo "$duration"
+        echo ""
+        return
+    fi
+    
+    # 提取回應內容
+    local api_response
+    api_response=$(echo "$full_response" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
+    
+    if [ -z "$api_response" ]; then
+        echo "警告: 無法從回應中提取內容" >&2
+        echo "完整回應: $full_response" >&2
+    fi
     
     # 將執行時間和 API 回應都輸出到 STDOUT
     echo "$duration"
