@@ -54,18 +54,25 @@ if [ -n "$REMOTE_CONFIG_URL" ]; then
     # 加上隨機參數避免快取問題
     RANDOM_PARAM="nocache=$(($(date +%s%N)))"
     CONFIG_URL="${REMOTE_CONFIG_URL}${REMOTE_CONFIG_URL##*\?:+&}${REMOTE_CONFIG_URL//\?*/+?}${RANDOM_PARAM}"
-    if REMOTE_SETTINGS=$(curl -sSL "$CONFIG_URL"); then
+    # 使用 -f 參數讓 curl 在 HTTP 錯誤時失敗，並捕獲退出碼
+    if REMOTE_SETTINGS=$(curl -fsSL "$CONFIG_URL" 2>&1); then
         if [ -n "$REMOTE_SETTINGS" ]; then
-            set -a
-            # shellcheck source=/dev/null
-            source <(echo "$REMOTE_SETTINGS")
-            set +a
-            echo "遠端設定載入成功。" >&2
+            # 檢查內容是否像 shell 腳本（包含 = 或 export）
+            if echo "$REMOTE_SETTINGS" | grep -qE '(^|[[:space:]])([A-Z_][A-Z0-9_]*=|export[[:space:]])'; then
+                set -a
+                # shellcheck source=/dev/null
+                source <(echo "$REMOTE_SETTINGS") 2>&1 && \
+                    echo "遠端設定載入成功。" >&2 || \
+                    echo "警告: 遠端設定載入失敗，將使用本地設定。" >&2
+                set +a
+            else
+                echo "警告: 遠端設定檔格式不正確（不包含有效的環境變數設定），將使用本地設定。" >&2
+            fi
         else
             echo "警告: 遠端設定檔內容為空。" >&2
         fi
     else
-        echo "警告: 無法從遠端 URL 下載設定，將使用本地設定。" >&2
+        echo "警告: 無法從遠端 URL 下載設定（HTTP 錯誤或網路問題），將使用本地設定。" >&2
     fi
 fi
 
