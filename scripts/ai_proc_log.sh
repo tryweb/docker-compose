@@ -51,7 +51,10 @@ done
 # 4. 載入遠端設定
 if [ -n "$REMOTE_CONFIG_URL" ]; then
     echo "正在從遠端載入設定: $REMOTE_CONFIG_URL" >&2
-    if REMOTE_SETTINGS=$(curl -sSL "$REMOTE_CONFIG_URL"); then
+    # 加上隨機參數避免快取問題
+    RANDOM_PARAM="nocache=$(($(date +%s%N)))"
+    CONFIG_URL="${REMOTE_CONFIG_URL}${REMOTE_CONFIG_URL##*\?:+&}${REMOTE_CONFIG_URL//\?*/+?}${RANDOM_PARAM}"
+    if REMOTE_SETTINGS=$(curl -sSL "$CONFIG_URL"); then
         if [ -n "$REMOTE_SETTINGS" ]; then
             set -a
             # shellcheck source=/dev/null
