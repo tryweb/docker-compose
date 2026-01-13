@@ -1,22 +1,4 @@
 services:
-  syslog-ng:
-    image: lscr.io/linuxserver/syslog-ng:latest
-    container_name: syslog-ng
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Asia/Taipei
-      - LOG_TO_STDOUT= #optional
-    volumes:
-      - ./syslog-ng/config:/config
-      - ./log:/var/log #optional
-    ports:
-      - 514:5514/udp
-      - 601:6601/tcp
-      - 6514:6514/tcp
-    restart: unless-stopped
-    
-services:
     openvpn:
        container_name: openvpn
        image: d3vilh/openvpn-server:latest
@@ -28,6 +10,7 @@ services:
            TRUST_SUB: 10.0.70.0/24
            GUEST_SUB: 10.0.71.0/24
            HOME_SUB: 192.168.88.0/24
+           TZ: Asia/Taipei
        volumes:
            - ./pki:/etc/openvpn/pki
            - ./clients:/etc/openvpn/clients
@@ -44,6 +27,7 @@ services:
        container_name: openvpn-ui
        image: d3vilh/openvpn-ui:latest
        environment:
+           - TZ=Asia/Taipei
            - OPENVPN_ADMIN_USERNAME=${ADMIN_USERNAME}
            - OPENVPN_ADMIN_PASSWORD=${ADMIN_PASSWORD}
        privileged: true
