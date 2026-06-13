@@ -1,9 +1,9 @@
 #!/bin/sh
 
-# Alpine Linux 3.19 to 3.23 升級腳本 (逐步升級)
+# Alpine Linux 3.19 to 3.24 升級腳本 (逐步升級)
 # 使用方法: ./alpine_upgrade.sh (需要 root 權限執行)
 # 注意: 請確保有足夠的磁碟空間和網路連線
-# 此腳本會執行 3.19 → 3.20 → 3.21 → 3.22 → 3.23 的逐步升級
+# 此腳本會執行 3.19 → 3.20 → 3.21 → 3.22 → 3.23 → 3.24 的逐步升級
 
 set -eu  # 嚴格模式：遇到錯誤立即停止
 
@@ -15,8 +15,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 升級路徑定義
-UPGRADE_PATH="3.19 3.20 3.21 3.22 3.23"
-TARGET_VERSION="3.23"
+UPGRADE_PATH="3.19 3.20 3.21 3.22 3.23 3.24"
+TARGET_VERSION="3.24"
 
 # 日志函數
 log_info() {
@@ -66,9 +66,9 @@ check_current_version() {
     log_info "當前版本: $current_version"
     
     # 檢查是否為支援的起始版本
-    if ! echo "$current_version" | grep -E "^3\.(19|20|21|22)\."; then
+    if ! echo "$current_version" | grep -E "^3\.(19|20|21|22|23)\."; then
         log_error "當前版本不在支援的升級範圍內"
-        log_info "此腳本支援從 3.19.x, 3.20.x, 3.21.x 或 3.22.x 升級到 3.23.x"
+        log_info "此腳本支援從 3.19.x, 3.20.x, 3.21.x, 3.22.x 或 3.23.x 升級到 3.24.x"
         log_info "當前版本: $current_version"
         exit 1
     fi
@@ -245,19 +245,36 @@ upgrade_to_version() {
             # apk 會自動處理這個替換
         fi
     fi
+
+    # 特別處理 3.24 的 GRUB 2.14 升級
+    if [ "$target_ver" = "3.24" ]; then
+        log_info "檢查 GRUB 套件..."
+        if apk info -e grub >/dev/null 2>&1; then
+            log_warning "Alpine 3.24 包含 GRUB 2.14，升級後請務必執行 grub-install"
+            log_warning "以確保新的 GRUB 版本正確安裝到磁碟，否則系統可能無法正常開機"
+        fi
+    fi
     
     # 驗證升級
     local new_version=$(cat /etc/alpine-release)
     if echo "$new_version" | grep -q "^$target_ver\."; then
         log_success "成功升級到 $new_version"
         
-        # 顯示 3.23 的重要更新資訊
+        # 顯示各版本的重要更新資訊
         if [ "$target_ver" = "3.23" ]; then
             log_info "Alpine Linux 3.23.0 重要更新:"
             log_info "  - apk-tools v3 (套件管理器重大更新)"
             log_info "  - Linux kernel 6.18"
             log_info "  - GCC 15, LLVM 21"
             log_info "  - linux-stable 替換 linux-edge"
+        fi
+        if [ "$target_ver" = "3.24" ]; then
+            log_info "Alpine Linux 3.24.0 重要更新:"
+            log_info "  - Linux kernel 6.18 LTS"
+            log_info "  - GRUB 2.14 (升級後需執行 grub-install)"
+            log_info "  - GCC 15.2, LLVM 22, Rust 1.96"
+            log_info "  - Node.js 24.16 LTS, Go 1.26"
+            log_info "  - /usr merge 目錄佈局支援 (可選)"
         fi
         
         return 0
@@ -374,7 +391,7 @@ cleanup() {
 reboot_prompt() {
     log_info "多版本升級完成，強烈建議重新啟動系統以確保所有變更生效"
     log_warning "由於進行了多個版本的升級，重新啟動是必要的"
-    log_warning "特別是升級到 3.23 包含了 Linux kernel 6.18 和其他重要更新"
+    log_warning "特別是升級到 3.24 包含了 Linux kernel 6.18 LTS 和其他重要更新"
     
     while true; do
         printf "是否立即重新啟動？(y/n): "
@@ -416,6 +433,9 @@ show_upgrade_plan() {
             if [ "$version" = "3.23" ]; then
                 log_warning "    → 包含 apk-tools v3 和 Linux kernel 6.18"
             fi
+            if [ "$version" = "3.24" ]; then
+                log_warning "    → 包含 GRUB 2.14 和 Linux kernel 6.18 LTS"
+            fi
             step=$((step + 1))
         elif [ "$version" = "$current_major" ]; then
             need_upgrade=true
@@ -427,7 +447,7 @@ show_upgrade_plan() {
     done
     
     log_warning "此升級過程可能需要 30-60 分鐘，請耐心等待"
-    log_warning "Alpine 3.23 包含重大更新 (apk-tools v3)，請確保備份重要資料"
+    log_warning "Alpine 3.23 包含 apk-tools v3 重大更新，3.24 包含 GRUB 2.14，請確保備份重要資料"
     
     printf "確認執行升級？(y/n): "
     read yn
@@ -475,35 +495,37 @@ main() {
 
 # 顯示使用說明
 show_usage() {
-    echo "Alpine Linux 3.19/3.20/3.21/3.22 to 3.23 升級腳本"
+    echo "Alpine Linux 3.19/3.20/3.21/3.22/3.23 to 3.24 升級腳本"
     echo "使用方法: ./alpine_upgrade.sh (需要 root 權限)"
     echo ""
     echo "此腳本將會:"
     echo "1. 檢查當前系統版本和資源"
     echo "2. 規劃逐步升級路徑"
     echo "3. 備份重要檔案"
-    echo "4. 執行逐步安全升級 (3.19→3.20→3.21→3.22→3.23)"
+    echo "4. 執行逐步安全升級 (3.19→3.20→3.21→3.22→3.23→3.24)"
     echo "5. 驗證每個步驟的升級結果"
     echo "6. 提供重新啟動選項"
     echo ""
     echo "支援的升級路徑:"
-    echo "- Alpine 3.19.x → 3.23.x"
-    echo "- Alpine 3.20.x → 3.23.x"  
-    echo "- Alpine 3.21.x → 3.23.x"
-    echo "- Alpine 3.22.x → 3.23.x"
+    echo "- Alpine 3.19.x → 3.24.x"
+    echo "- Alpine 3.20.x → 3.24.x"  
+    echo "- Alpine 3.21.x → 3.24.x"
+    echo "- Alpine 3.22.x → 3.24.x"
+    echo "- Alpine 3.23.x → 3.24.x"
     echo ""
-    echo "Alpine 3.23.0 主要更新:"
-    echo "- apk-tools v3 (套件管理器重大更新)"
-    echo "- Linux kernel 6.18"
-    echo "- GCC 15, LLVM 21"
-    echo "- Node.js 24.11, Rust 1.91"
-    echo "- linux-stable 替換 linux-edge"
+    echo "Alpine 3.24.0 主要更新:"
+    echo "- Linux kernel 6.18 LTS"
+    echo "- GRUB 2.14 (升級後需執行 grub-install)"
+    echo "- GCC 15.2, LLVM 22, Rust 1.96"
+    echo "- Node.js 24.16 LTS, Go 1.26"
+    echo "- COSMIC 桌面環境 (社群套件庫)"
     echo ""
     echo "注意事項:"
     echo "- 請確保有穩定的網路連線"
     echo "- 確保有至少 1GB 的可用磁碟空間"
     echo "- 建議在升級前備份重要資料"
     echo "- 升級完成後務必重新啟動系統"
+    echo "- GRUB 使用者升級後務必執行 grub-install"
     echo "- 整個升級過程可能需要 30-60 分鐘"
 }
 
