@@ -407,7 +407,7 @@ reboot_prompt() {
     
     while true; do
         printf "是否立即重新啟動？(y/n): "
-        read yn
+        read yn < /dev/tty
         case $yn in
             [Yy]* )
                 log_info "正在同步檔案系統..."
@@ -467,7 +467,7 @@ show_upgrade_plan() {
     fi
 
     printf "確認執行升級？(y/n): "
-    read yn
+    read yn < /dev/tty
     case $yn in
         [Yy]* ) return 0 ;;
         [Nn]* ) exit 0 ;;
