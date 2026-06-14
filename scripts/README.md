@@ -131,12 +131,26 @@
     -   安全地將 Alpine Linux 系統逐步升級。
     -   執行多項前置檢查（root 權限、版本、磁碟空間、網路）。
     -   自動備份與還原軟體庫設定。
+    -   支援 `--silent` 模式，跳過所有確認提示，適合自動化執行。
 -   **使用方式**：
     **警告**：此腳本必須以 root 權限執行。
+
     ```sh
-    # 登入您的 Alpine 主機並執行
-    sudo ./scripts/alpine_upgrade.sh
+    # 一鍵下載並執行（預設模式，需手動確認）
+    curl -sSL https://raw.githubusercontent.com/tryweb/docker-compose/main/scripts/alpine_upgrade.sh | sh
+
+    # Silent 模式 — 自動確認所有提示，適合 crontab/CI/CD 自動化
+    curl -sSL https://raw.githubusercontent.com/tryweb/docker-compose/main/scripts/alpine_upgrade.sh | sh -s -- --silent
     ```
+
+    **選項說明**：
+
+    | 參數 | 說明 |
+    | :--- | :--- |
+    | `-h, --help` | 顯示使用說明 |
+    | `-s, --silent` | Silent 模式，跳過所有 y/N 確認提示（升級確認 + 重新啟動確認） |
+
+    > 注意：`--silent` 模式下，安裝完成後系統會自動重新啟動。
 
 ---
 
