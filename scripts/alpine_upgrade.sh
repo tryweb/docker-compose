@@ -7,6 +7,9 @@
 
 set -eu  # 嚴格模式：遇到錯誤立即停止
 
+# Silent mode (default: off) — when enabled, all y/N prompts auto-answer Y
+SILENT_MODE=false
+
 # 顏色定義
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -393,6 +396,15 @@ reboot_prompt() {
     log_warning "由於進行了多個版本的升級，重新啟動是必要的"
     log_warning "特別是升級到 3.24 包含了 Linux kernel 6.18 LTS 和其他重要更新"
     
+    if [ "$SILENT_MODE" = "true" ]; then
+        log_info "Silent mode: 自動重新啟動..."
+        sync
+        log_info "系統將在 10 秒後重新啟動..."
+        sleep 10
+        reboot
+        return 0
+    fi
+    
     while true; do
         printf "是否立即重新啟動？(y/n): "
         read yn
@@ -449,6 +461,11 @@ show_upgrade_plan() {
     log_warning "此升級過程可能需要 30-60 分鐘，請耐心等待"
     log_warning "Alpine 3.23 包含 apk-tools v3 重大更新，3.24 包含 GRUB 2.14，請確保備份重要資料"
     
+    if [ "$SILENT_MODE" = "true" ]; then
+        log_info "Silent mode: 自動確認升級"
+        return 0
+    fi
+
     printf "確認執行升級？(y/n): "
     read yn
     case $yn in
@@ -496,7 +513,11 @@ main() {
 # 顯示使用說明
 show_usage() {
     echo "Alpine Linux 3.19/3.20/3.21/3.22/3.23 to 3.24 升級腳本"
-    echo "使用方法: ./alpine_upgrade.sh (需要 root 權限)"
+    echo "使用方法: ./alpine_upgrade.sh [選項] (需要 root 權限)"
+    echo ""
+    echo "選項:"
+    echo "  -h, --help      顯示此說明"
+    echo "  -s, --silent    Silent 模式 — 跳過所有確認提示，自動以 Yes 執行"
     echo ""
     echo "此腳本將會:"
     echo "1. 檢查當前系統版本和資源"
@@ -530,10 +551,16 @@ show_usage() {
 }
 
 # 檢查參數
-if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    show_usage
-    exit 0
-fi
+case "${1:-}" in
+    --help|-h)
+        show_usage
+        exit 0
+        ;;
+    --silent|-s)
+        SILENT_MODE=true
+        log_info "Silent mode enabled — all prompts will auto-answer Yes"
+        ;;
+esac
 
 # 執行主程序
-main "$@"
+main
